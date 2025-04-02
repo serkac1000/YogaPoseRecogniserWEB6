@@ -21,10 +21,24 @@ function handleImageUpload(event, poseName) {
             preview.src = e.target.result;
             preview.style.display = 'block';
             poseImages.set(poseName, e.target.result);
+            localStorage.setItem(`pose_${poseName}`, e.target.result);
         };
         reader.readAsDataURL(file);
     }
 }
+
+// Load saved images on page load
+window.addEventListener('DOMContentLoaded', () => {
+    ['Pose1', 'Pose2', 'Pose3'].forEach(poseName => {
+        const savedImage = localStorage.getItem(`pose_${poseName}`);
+        if (savedImage) {
+            const preview = document.getElementById(`${poseName.toLowerCase()}-preview`);
+            preview.src = savedImage;
+            preview.style.display = 'block';
+            poseImages.set(poseName, savedImage);
+        }
+    });
+});
 
 function showSettingsPage() {
     document.getElementById('recognition-page').classList.remove('active');
