@@ -1,5 +1,5 @@
 // Teachable Machine model URL
-const URL = 'YOUR_TEACHABLE_MACHINE_MODEL_URL';
+const URL = 'https://teachablemachine.withgoogle.com/models/gIF64n3nR/';
 let model, webcam, ctx, labelContainer, maxPredictions;
 
 async function init() {
