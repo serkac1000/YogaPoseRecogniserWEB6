@@ -1,79 +1,65 @@
+// Teachable Machine model URL
+const URL = 'YOUR_TEACHABLE_MACHINE_MODEL_URL';
+let model, webcam, ctx, labelContainer, maxPredictions;
 
-let detector;
-let video;
-let canvas;
-let ctx;
-let poses = [];
-
-// Initialize the webcam and pose detector
 async function init() {
-    video = document.getElementById('webcam');
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+
+    model = await tmPose.load(modelURL, metadataURL);
+    maxPredictions = model.getTotalClasses();
+
+    const size = 200;
+    const flip = true;
+    webcam = new tmPose.Webcam(size, size, flip);
+    await webcam.setup();
+    await webcam.play();
+
     canvas = document.getElementById('output');
     ctx = canvas.getContext('2d');
+    labelContainer = document.getElementById('pose-name');
 
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        video.onloadedmetadata = () => {
-            video.play();
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-        };
+    canvas.width = size;
+    canvas.height = size;
 
-        const model = poseDetection.SupportedModels.BlazePose;
-        const detectorConfig = {
-            runtime: 'tfjs',
-            enableSmoothing: true,
-            modelType: 'full'
-        };
-        detector = await poseDetection.createDetector(model, detectorConfig);
-        
-        requestAnimationFrame(detectPose);
-    } catch (error) {
-        console.error('Error initializing:', error);
-    }
+    window.requestAnimationFrame(loop);
 }
 
-// Detect poses in real-time
-async function detectPose() {
-    if (detector && video) {
-        try {
-            poses = await detector.estimatePoses(video);
-            drawPose();
-            analyzePose();
-        } catch (error) {
-            console.error('Error detecting pose:', error);
+async function loop(timestamp) {
+    webcam.update();
+    await predict();
+    window.requestAnimationFrame(loop);
+}
+
+async function predict() {
+    const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+    const prediction = await model.predict(posenetOutput);
+
+    ctx.drawImage(webcam.canvas, 0, 0);
+    if (pose) {
+        drawPose(pose);
+    }
+
+    let maxConfidence = 0;
+    let bestPose = '';
+    for (let i = 0; i < maxPredictions; i++) {
+        if (prediction[i].probability > maxConfidence) {
+            maxConfidence = prediction[i].probability;
+            bestPose = prediction[i].className;
         }
     }
-    requestAnimationFrame(detectPose);
+    labelContainer.textContent = 'Current Pose: ' + bestPose;
 }
 
-// Draw the detected pose
-function drawPose() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    poses.forEach(pose => {
-        pose.keypoints.forEach(keypoint => {
-            if (keypoint.score > 0.3) {
-                ctx.beginPath();
-                ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = 'red';
-                ctx.fill();
-            }
-        });
-    });
-}
-
-// Analyze the pose and display the name
-function analyzePose() {
-    if (poses.length > 0) {
-        const pose = poses[0];
-        // Simple pose analysis (can be expanded)
-        const poseNameElement = document.getElementById('pose-name');
-        poseNameElement.textContent = 'Current Pose: Standing';
+function drawPose(pose) {
+    for (let keypoint of pose.keypoints) {
+        if (keypoint.score > 0.2) {
+            ctx.beginPath();
+            ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+        }
     }
 }
 
-// Start the application
 init();
