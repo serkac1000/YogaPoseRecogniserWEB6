@@ -2,6 +2,10 @@
 let model, webcam, ctx, labelContainer, maxPredictions;
 const poseImages = new Map();
 let currentPoseImage = null;
+let currentPoseIndex = 0;
+let poseHoldTimer = 3;
+let lastPoseTime = 0;
+const poseOrder = ['Pose1', 'Pose2', 'Pose3'];
 
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startRecognition);
@@ -108,13 +112,27 @@ async function predict() {
         }
     }
 
-    if (maxConfidence > 0.5) {
-        const currentPose = document.getElementById('current-pose');
-        currentPose.src = poseImages.get(bestPose);
-        currentPose.style.display = 'block';
-    }
+    const expectedPose = poseOrder[currentPoseIndex];
+    const currentPose = document.getElementById('current-pose');
+    currentPose.src = poseImages.get(expectedPose);
+    currentPose.style.display = 'block';
 
-    labelContainer.textContent = `Current Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%`;
+    if (maxConfidence > 0.5 && bestPose === expectedPose) {
+        if (lastPoseTime === 0) {
+            lastPoseTime = Date.now();
+        }
+        const holdTime = 3 - Math.floor((Date.now() - lastPoseTime) / 1000);
+        
+        if (holdTime <= 0) {
+            currentPoseIndex = (currentPoseIndex + 1) % poseOrder.length;
+            lastPoseTime = 0;
+        }
+        
+        labelContainer.textContent = `Current Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%\nHold for: ${Math.max(0, holdTime)}s`;
+    } else {
+        lastPoseTime = 0;
+        labelContainer.textContent = `Expected Pose: ${expectedPose}\nCurrent Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%`;
+    }
 }
 
 function drawPose(pose) {
