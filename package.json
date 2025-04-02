@@ -1,0 +1,22 @@
+
+{
+  "name": "yoga-pose-recognizer",
+  "version": "1.0.0",
+  "description": "Yoga Pose Recognition Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.yogapose.app",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "^22.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
