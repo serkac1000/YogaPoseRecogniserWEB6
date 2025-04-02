@@ -1,6 +1,12 @@
+
 // Teachable Machine model URL
 const URL = 'https://teachablemachine.withgoogle.com/models/gIF64n3nR/';
 let model, webcam, ctx, labelContainer, maxPredictions;
+
+// Pose sequence tracking
+const poseSequence = ['Pose1', 'Pose2', 'Pose3'];
+let currentPoseIndex = 0;
+let lastCorrectPose = '';
 
 async function init() {
     const modelURL = URL + "model.json";
@@ -48,7 +54,14 @@ async function predict() {
             bestPose = prediction[i].className;
         }
     }
-    labelContainer.textContent = 'Current Pose: ' + bestPose;
+
+    // Check if pose matches sequence with 50% confidence threshold
+    if (maxConfidence > 0.5 && bestPose === poseSequence[currentPoseIndex] && bestPose !== lastCorrectPose) {
+        lastCorrectPose = bestPose;
+        currentPoseIndex = (currentPoseIndex + 1) % poseSequence.length;
+    }
+
+    labelContainer.textContent = `Current Pose: ${bestPose}\nNext Pose: ${poseSequence[currentPoseIndex]}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%`;
 }
 
 function drawPose(pose) {
