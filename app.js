@@ -109,6 +109,18 @@ function showSettingsPage() {
 async function startCameraRecognition() {
     if (!isRecognitionRunning && model) {
         try {
+            console.log('Starting camera recognition...');
+            
+            // Check for camera permission first
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+                console.log('Camera permission granted');
+            } catch (permError) {
+                console.error('Camera permission error:', permError);
+                throw permError;
+            }
+            
             isRecognitionRunning = true;
             currentPoseIndex = 0; // Reset to pose 1
             lastPoseTime = 0;
@@ -181,11 +193,38 @@ async function init(URL) {
 
 async function initWebcam() {
     try {
+        console.log('Starting webcam initialization...');
+        
+        // Check if we have camera permission first
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        if (videoDevices.length === 0) {
+            throw new Error('No camera devices found');
+        }
+        
         const size = 640;
         const flip = true;
+        
+        // Clean up existing webcam if any
+        if (webcam) {
+            try {
+                webcam.stop();
+            } catch (e) {
+                console.log('Error stopping existing webcam:', e);
+            }
+        }
+        
         webcam = new tmPose.Webcam(size, size, flip);
-        await webcam.setup();
+        console.log('Webcam object created, setting up...');
+        
+        await webcam.setup({
+            facingMode: 'user'
+        });
+        console.log('Webcam setup complete, starting play...');
+        
         await webcam.play();
+        console.log('Webcam play started successfully');
 
         canvas = document.getElementById('output');
         ctx = canvas.getContext('2d');
@@ -196,11 +235,24 @@ async function initWebcam() {
 
         // Only start the loop if recognition is running
         if (isRecognitionRunning) {
+            console.log('Starting recognition loop...');
             window.requestAnimationFrame(loop);
         }
     } catch (error) {
         console.error('Error initializing webcam:', error);
-        alert('Failed to initialize camera. Please check camera permissions and try again.');
+        let errorMessage = 'Failed to initialize camera. ';
+        
+        if (error.name === 'NotAllowedError') {
+            errorMessage += 'Camera permission was denied. Please allow camera access and try again.';
+        } else if (error.name === 'NotFoundError') {
+            errorMessage += 'No camera found. Please connect a camera and try again.';
+        } else if (error.name === 'NotReadableError') {
+            errorMessage += 'Camera is already in use by another application.';
+        } else {
+            errorMessage += 'Please check camera permissions and try again.';
+        }
+        
+        alert(errorMessage);
         stopCameraRecognition();
     }
 }
