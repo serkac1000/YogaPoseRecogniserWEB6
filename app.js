@@ -108,15 +108,22 @@ function showSettingsPage() {
 
 async function startCameraRecognition() {
     if (!isRecognitionRunning && model) {
-        isRecognitionRunning = true;
-        currentPoseIndex = 0; // Reset to pose 1
-        lastPoseTime = 0;
-        isTransitioning = false;
-        document.getElementById('start-recognition-button').style.display = 'none';
-        document.getElementById('stop-recognition-button').style.display = 'inline-block';
-        
-        // Always reinitialize webcam to ensure it works properly
-        await initWebcam();
+        try {
+            isRecognitionRunning = true;
+            currentPoseIndex = 0; // Reset to pose 1
+            lastPoseTime = 0;
+            isTransitioning = false;
+            document.getElementById('start-recognition-button').style.display = 'none';
+            document.getElementById('stop-recognition-button').style.display = 'inline-block';
+            
+            // Always reinitialize webcam to ensure it works properly
+            await initWebcam();
+        } catch (error) {
+            console.error('Error starting camera recognition:', error);
+            isRecognitionRunning = false;
+            document.getElementById('start-recognition-button').style.display = 'inline-block';
+            document.getElementById('stop-recognition-button').style.display = 'none';
+        }
     }
 }
 
@@ -157,32 +164,44 @@ async function startRecognition() {
 }
 
 async function init(URL) {
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
+    try {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
 
-    model = await tmPose.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
+        model = await tmPose.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
 
-    await initWebcam();
+        // Show start button once model is loaded
+        document.getElementById('start-recognition-button').style.display = 'inline-block';
+    } catch (error) {
+        console.error('Error loading model:', error);
+        alert('Failed to load the pose recognition model. Please check the model URL and try again.');
+    }
 }
 
 async function initWebcam() {
-    const size = 640;
-    const flip = true;
-    webcam = new tmPose.Webcam(size, size, flip);
-    await webcam.setup();
-    await webcam.play();
+    try {
+        const size = 640;
+        const flip = true;
+        webcam = new tmPose.Webcam(size, size, flip);
+        await webcam.setup();
+        await webcam.play();
 
-    canvas = document.getElementById('output');
-    ctx = canvas.getContext('2d');
-    labelContainer = document.getElementById('pose-name');
+        canvas = document.getElementById('output');
+        ctx = canvas.getContext('2d');
+        labelContainer = document.getElementById('pose-name');
 
-    canvas.width = size;
-    canvas.height = size;
+        canvas.width = size;
+        canvas.height = size;
 
-    // Only start the loop if recognition is running
-    if (isRecognitionRunning) {
-        window.requestAnimationFrame(loop);
+        // Only start the loop if recognition is running
+        if (isRecognitionRunning) {
+            window.requestAnimationFrame(loop);
+        }
+    } catch (error) {
+        console.error('Error initializing webcam:', error);
+        alert('Failed to initialize camera. Please check camera permissions and try again.');
+        stopCameraRecognition();
     }
 }
 
