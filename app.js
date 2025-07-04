@@ -115,12 +115,8 @@ function startCameraRecognition() {
         document.getElementById('start-recognition-button').style.display = 'none';
         document.getElementById('stop-recognition-button').style.display = 'inline-block';
         
-        if (!webcam) {
-            init(document.getElementById('model-url').value);
-        } else {
-            webcam.play();
-            window.requestAnimationFrame(loop);
-        }
+        // Always reinitialize webcam to ensure it works properly
+        initWebcam();
     }
 }
 
@@ -129,6 +125,7 @@ function stopCameraRecognition() {
         isRecognitionRunning = false;
         if (webcam) {
             webcam.stop();
+            webcam = null; // Reset webcam to null so it can be recreated
         }
         document.getElementById('start-recognition-button').style.display = 'inline-block';
         document.getElementById('stop-recognition-button').style.display = 'none';
@@ -166,6 +163,10 @@ async function init(URL) {
     model = await tmPose.load(modelURL, metadataURL);
     maxPredictions = model.getTotalClasses();
 
+    await initWebcam();
+}
+
+async function initWebcam() {
     const size = 640;
     const flip = true;
     webcam = new tmPose.Webcam(size, size, flip);
@@ -178,10 +179,6 @@ async function init(URL) {
 
     canvas.width = size;
     canvas.height = size;
-
-    isRecognitionRunning = true;
-    document.getElementById('start-recognition-button').style.display = 'none';
-    document.getElementById('stop-recognition-button').style.display = 'inline-block';
 
     window.requestAnimationFrame(loop);
 }
