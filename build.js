@@ -20,9 +20,21 @@ if (!fs.existsSync(iconPath)) {
 // Build for Windows
 try {
     console.log('🏗️  Building Windows executable...');
-    execSync('npm run build-win', { stdio: 'inherit' });
+    
+    // Set production environment
+    process.env.NODE_ENV = 'production';
+    
+    execSync('npm run build-win', { 
+        stdio: 'inherit',
+        env: { ...process.env, NODE_ENV: 'production' }
+    });
     console.log('✅ Windows build completed successfully!');
     console.log('📁 Executable files are in the "dist" folder');
+    console.log('');
+    console.log('⚠️  Important notes for the executable:');
+    console.log('   • Make sure you have internet connection when running');
+    console.log('   • The app needs to load the AI model from the internet');
+    console.log('   • If you get model loading errors, check your firewall/antivirus');
 } catch (error) {
     console.error('❌ Build failed:', error.message);
     process.exit(1);

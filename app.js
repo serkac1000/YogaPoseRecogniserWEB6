@@ -1,4 +1,3 @@
-
 let model, webcam, ctx, labelContainer, maxPredictions;
 const poseImages = new Map();
 let currentPoseImage = null;
@@ -67,20 +66,20 @@ window.addEventListener('DOMContentLoaded', () => {
             poseImages.set(poseName, savedImage);
         }
     });
-    
+
     // Load model URL setting
     const savedModelUrl = localStorage.getItem('modelUrl');
     if (savedModelUrl !== null) {
         document.getElementById('model-url').value = savedModelUrl;
     }
-    
+
     // Load audio setting
     const savedAudioEnabled = localStorage.getItem('audioEnabled');
     if (savedAudioEnabled !== null) {
         audioEnabled = savedAudioEnabled === 'true';
         document.getElementById('audio-toggle').checked = audioEnabled;
     }
-    
+
     // Load delay setting
     const savedDelay = localStorage.getItem('recognitionDelay');
     if (savedDelay !== null) {
@@ -89,7 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         document.getElementById('delay-setting').value = 3; // Default value
     }
-    
+
     // Load accuracy setting
     const savedAccuracy = localStorage.getItem('accuracyThreshold');
     if (savedAccuracy !== null) {
@@ -98,7 +97,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         document.getElementById('accuracy-setting').value = 50; // Default value
     }
-    
+
     console.log('Settings loaded:', {
         modelUrl: document.getElementById('model-url').value,
         audioEnabled: audioEnabled,
@@ -120,7 +119,7 @@ async function startCameraRecognition() {
     if (!isRecognitionRunning && model) {
         try {
             console.log('Starting camera recognition...');
-            
+
             // Check for camera permission first
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -130,14 +129,14 @@ async function startCameraRecognition() {
                 console.error('Camera permission error:', permError);
                 throw permError;
             }
-            
+
             isRecognitionRunning = true;
             currentPoseIndex = 0; // Reset to pose 1
             lastPoseTime = 0;
             isTransitioning = false;
             document.getElementById('start-recognition-button').style.display = 'none';
             document.getElementById('stop-recognition-button').style.display = 'inline-block';
-            
+
             // Always reinitialize webcam to ensure it works properly
             await initWebcam();
         } catch (error) {
@@ -158,12 +157,12 @@ function stopCameraRecognition() {
         }
         document.getElementById('start-recognition-button').style.display = 'inline-block';
         document.getElementById('stop-recognition-button').style.display = 'none';
-        
+
         // Clear displays
         const canvas = document.getElementById('output');
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         document.getElementById('pose-name').textContent = 'Recognition stopped';
         document.getElementById('confidence-bar').style.width = '0%';
         document.getElementById('confidence-text').textContent = '0%';
@@ -177,49 +176,39 @@ async function startRecognition() {
         alert('Please upload all seven pose images first');
         return;
     }
-    
+
     document.getElementById('settings-page').classList.remove('active');
     document.getElementById('recognition-page').classList.add('active');
-    
+
     const URL = document.getElementById('model-url').value;
     await init(URL);
 }
 
 async function init(URL) {
     try {
-        console.log('Loading model from URL:', URL);
-        
-        // Ensure URL ends with slash
-        const baseURL = URL.endsWith('/') ? URL : URL + '/';
-        const modelURL = baseURL + "model.json";
-        const metadataURL = baseURL + "metadata.json";
-        
-        console.log('Model URL:', modelURL);
-        console.log('Metadata URL:', metadataURL);
+        console.log('Loading model from:', URL);
 
-        // Test if URLs are accessible
-        try {
-            const testResponse = await fetch(modelURL);
-            if (!testResponse.ok) {
-                throw new Error(`Model URL not accessible: ${testResponse.status} ${testResponse.statusText}`);
-            }
-            console.log('Model URL is accessible');
-        } catch (fetchError) {
-            console.error('URL accessibility test failed:', fetchError);
-            throw new Error(`Cannot access model URL. Please check your internet connection and URL: ${fetchError.message}`);
-        }
+        // Add timeout and retry mechanism
+        const loadWithTimeout = async (url, timeout = 15000) => {
+            return Promise.race([
+                tmPose.load(url + 'model.json', url + 'metadata.json'),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Model loading timeout')), timeout)
+                )
+            ]);
+        };
 
-        model = await tmPose.load(modelURL, metadataURL);
+        // Try loading with timeout
+        model = await loadWithTimeout(URL);
         maxPredictions = model.getTotalClasses();
-        
-        console.log('Model loaded successfully with', maxPredictions, 'classes');
+        console.log('Model loaded successfully. Classes:', maxPredictions);
 
         // Show start button once model is loaded
         document.getElementById('start-recognition-button').style.display = 'inline-block';
     } catch (error) {
         console.error('Error loading model:', error);
         let errorMessage = 'Failed to load the pose recognition model.\n\n';
-        
+
         if (error.message.includes('Cannot access model URL')) {
             errorMessage += 'The model URL is not accessible. Please check:\n';
             errorMessage += '1. Your internet connection\n';
@@ -235,7 +224,7 @@ async function init(URL) {
             errorMessage += 'Error details: ' + error.message + '\n\n';
             errorMessage += 'Try using: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
         }
-        
+
         alert(errorMessage);
     }
 }
@@ -243,18 +232,18 @@ async function init(URL) {
 async function initWebcam() {
     try {
         console.log('Starting webcam initialization...');
-        
+
         // Check if we have camera permission first
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        
+
         if (videoDevices.length === 0) {
             throw new Error('No camera devices found');
         }
-        
+
         const size = 640;
         const flip = true;
-        
+
         // Clean up existing webcam if any
         if (webcam) {
             try {
@@ -263,15 +252,15 @@ async function initWebcam() {
                 console.log('Error stopping existing webcam:', e);
             }
         }
-        
+
         webcam = new tmPose.Webcam(size, size, flip);
         console.log('Webcam object created, setting up...');
-        
+
         await webcam.setup({
             facingMode: 'user'
         });
         console.log('Webcam setup complete, starting play...');
-        
+
         await webcam.play();
         console.log('Webcam play started successfully');
 
@@ -290,7 +279,7 @@ async function initWebcam() {
     } catch (error) {
         console.error('Error initializing webcam:', error);
         let errorMessage = 'Failed to initialize camera. ';
-        
+
         if (error.name === 'NotAllowedError') {
             errorMessage += 'Camera permission was denied. Please allow camera access and try again.';
         } else if (error.name === 'NotFoundError') {
@@ -300,7 +289,7 @@ async function initWebcam() {
         } else {
             errorMessage += 'Please check camera permissions and try again.';
         }
-        
+
         alert(errorMessage);
         stopCameraRecognition();
     }
@@ -319,14 +308,14 @@ function playBeep() {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
-        
+
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
-        
+
         oscillator.frequency.value = 800;
         oscillator.type = 'sine';
         gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        
+
         oscillator.start();
         oscillator.stop(audioContext.currentTime + 0.2);
     }
@@ -356,7 +345,7 @@ async function predict() {
     const expectedPose = poseOrder[currentPoseIndex];
     const currentPose = document.getElementById('current-pose');
     const timerDisplay = document.getElementById('timer-display');
-    
+
     currentPose.src = poseImages.get(expectedPose);
     currentPose.style.display = 'block';
 
@@ -364,7 +353,7 @@ async function predict() {
     const confidenceBar = document.getElementById('confidence-bar');
     const confidenceText = document.getElementById('confidence-text');
     const confidencePercent = (maxConfidence * 100).toFixed(1);
-    
+
     confidenceBar.style.width = confidencePercent + '%';
     confidenceText.textContent = confidencePercent + '%';
 
@@ -392,19 +381,19 @@ async function predict() {
         confidenceBar.classList.add('correct');
         currentPose.classList.remove('waiting');
         currentPose.classList.add('correct');
-        
+
         if (lastPoseTime === 0) {
             lastPoseTime = Date.now();
         }
         const holdTime = recognitionDelay - Math.floor((Date.now() - lastPoseTime) / 1000);
-        
+
         if (holdTime <= 0) {
             playBeep();
             isTransitioning = true;
             transitionStartTime = Date.now();
             lastPoseTime = 0;
         }
-        
+
         labelContainer.textContent = `Current Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%\nHold for: ${Math.max(0, holdTime)}s`;
     } else {
         confidenceBar.classList.remove('correct');
@@ -420,33 +409,33 @@ function drawPose(pose) {
     const connections = [
         // Head connections
         [0, 1], [0, 2], [1, 3], [2, 4], // nose to eyes, eyes to ears
-        
+
         // Torso connections
         [5, 6], [5, 7], [6, 8], [7, 9], [8, 10], // shoulders to arms
         [5, 11], [6, 12], [11, 12], // shoulders to hips, hip connection
-        
+
         // Left arm
         [7, 9], [9, 11],
-        
+
         // Right arm  
         [8, 10], [10, 12],
-        
+
         // Left leg
         [11, 13], [13, 15],
-        
+
         // Right leg
         [12, 14], [14, 16]
     ];
-    
+
     // Draw skeleton lines
     ctx.strokeStyle = '#00BFFF';
     ctx.lineWidth = 3;
-    
+
     for (let connection of connections) {
         const [pointA, pointB] = connection;
         const keypointA = pose.keypoints[pointA];
         const keypointB = pose.keypoints[pointB];
-        
+
         // Only draw if both keypoints are confident enough
         if (keypointA && keypointB && keypointA.score > 0.2 && keypointB.score > 0.2) {
             ctx.beginPath();
@@ -455,7 +444,7 @@ function drawPose(pose) {
             ctx.stroke();
         }
     }
-    
+
     // Draw keypoints on top of skeleton
     for (let keypoint of pose.keypoints) {
         if (keypoint.score > 0.2) {
@@ -463,7 +452,7 @@ function drawPose(pose) {
             ctx.arc(keypoint.position.x, keypoint.position.y, 6, 0, 2 * Math.PI);
             ctx.fillStyle = '#FF6B6B';
             ctx.fill();
-            
+
             // Add white border to keypoints
             ctx.beginPath();
             ctx.arc(keypoint.position.x, keypoint.position.y, 6, 0, 2 * Math.PI);

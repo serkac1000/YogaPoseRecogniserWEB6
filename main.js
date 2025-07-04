@@ -9,12 +9,15 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webSecurity: false, // Allow loading external resources
-      allowRunningInsecureContent: true // Allow mixed content
+      allowRunningInsecureContent: true, // Allow mixed content
+      experimentalFeatures: true
     }
   });
 
-  // Enable developer tools for debugging
-  mainWindow.webContents.openDevTools();
+  // Enable developer tools only in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
 
   // Handle external URLs
   mainWindow.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
