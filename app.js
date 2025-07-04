@@ -8,7 +8,7 @@ let lastPoseTime = 0;
 const poseOrder = ['Pose1', 'Pose2', 'Pose3', 'Pose4', 'Pose5', 'Pose6', 'Pose7'];
 let audioEnabled = true;
 let recognitionDelay = 3;
-let accuracyThreshold = 0.8;
+let accuracyThreshold = 0.5;
 let isRecognitionRunning = false;
 
 // Event Listeners
@@ -87,7 +87,7 @@ window.addEventListener('DOMContentLoaded', () => {
         accuracyThreshold = parseFloat(savedAccuracy);
         document.getElementById('accuracy-setting').value = accuracyThreshold * 100;
     } else {
-        document.getElementById('accuracy-setting').value = 80; // Default value
+        document.getElementById('accuracy-setting').value = 50; // Default value
     }
     
     console.log('Settings loaded:', {
