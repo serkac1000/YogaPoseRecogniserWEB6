@@ -74,6 +74,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedDelay !== null) {
         recognitionDelay = parseFloat(savedDelay);
         document.getElementById('delay-setting').value = recognitionDelay;
+    } else {
+        document.getElementById('delay-setting').value = 3; // Default value
     }
     
     // Load accuracy setting
@@ -81,7 +83,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedAccuracy !== null) {
         accuracyThreshold = parseFloat(savedAccuracy);
         document.getElementById('accuracy-setting').value = accuracyThreshold * 100;
+    } else {
+        document.getElementById('accuracy-setting').value = 50; // Default value
     }
+    
+    console.log('Settings loaded:', {
+        audioEnabled: audioEnabled,
+        recognitionDelay: recognitionDelay,
+        accuracyThreshold: accuracyThreshold
+    });
 });
 
 function showSettingsPage() {
