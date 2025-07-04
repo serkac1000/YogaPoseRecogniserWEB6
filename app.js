@@ -187,29 +187,72 @@ async function startRecognition() {
 async function init(URL) {
     try {
         console.log('Loading model from:', URL);
+        
+        // Ensure URL ends with slash
+        if (!URL.endsWith('/')) {
+            URL += '/';
+        }
 
-        // Add timeout and retry mechanism
-        const loadWithTimeout = async (url, timeout = 15000) => {
-            return Promise.race([
-                tmPose.load(url + 'model.json', url + 'metadata.json'),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Model loading timeout')), timeout)
-                )
-            ]);
+        // Validate URL format
+        if (!URL.includes('teachablemachine.withgoogle.com')) {
+            throw new Error('Invalid model URL. Must be from teachablemachine.withgoogle.com');
+        }
+
+        // Add timeout and retry mechanism with better error handling
+        const loadWithTimeout = async (url, timeout = 20000) => {
+            try {
+                console.log('Attempting to load model from:', url);
+                
+                // Test if the model.json file is accessible first
+                const testResponse = await fetch(url + 'model.json', { 
+                    method: 'HEAD',
+                    mode: 'cors'
+                });
+                
+                if (!testResponse.ok) {
+                    throw new Error(`Model not accessible: ${testResponse.status} ${testResponse.statusText}`);
+                }
+                
+                return Promise.race([
+                    tmPose.load(url + 'model.json', url + 'metadata.json'),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Model loading timeout after 20 seconds')), timeout)
+                    )
+                ]);
+            } catch (fetchError) {
+                console.error('Fetch error:', fetchError);
+                throw new Error(`Cannot access model URL: ${fetchError.message}`);
+            }
         };
 
         // Try loading with timeout
         model = await loadWithTimeout(URL);
+        
+        if (!model) {
+            throw new Error('Model loaded but is null or undefined');
+        }
+        
         maxPredictions = model.getTotalClasses();
         console.log('Model loaded successfully. Classes:', maxPredictions);
 
         // Show start button once model is loaded
         document.getElementById('start-recognition-button').style.display = 'inline-block';
+        
+        // Clear any previous error messages
+        document.getElementById('pose-name').textContent = 'Model loaded successfully!';
+        
     } catch (error) {
         console.error('Error loading model:', error);
         let errorMessage = 'Failed to load the pose recognition model.\n\n';
-
-        if (error.message.includes('Cannot access model URL')) {
+        
+        // Handle specific error types
+        if (error.message.includes('Cannot read properties of undefined')) {
+            errorMessage += 'Model structure error - the model files may be corrupted or incomplete.\n\n';
+            errorMessage += 'Solutions:\n';
+            errorMessage += '1. Try a different model URL\n';
+            errorMessage += '2. Check your internet connection\n';
+            errorMessage += '3. Use this working model: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/\n\n';
+        } else if (error.message.includes('Cannot access model URL') || error.message.includes('Model not accessible')) {
             errorMessage += 'The model URL is not accessible. Please check:\n';
             errorMessage += '1. Your internet connection\n';
             errorMessage += '2. The model URL is correct\n';
@@ -220,12 +263,21 @@ async function init(URL) {
             errorMessage += 'CORS error - the model server is blocking access.\n';
             errorMessage += 'Try using a different model URL from Teachable Machine.\n';
             errorMessage += 'Recommended: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
+        } else if (error.message.includes('timeout')) {
+            errorMessage += 'Model loading timed out. This could be due to:\n';
+            errorMessage += '1. Slow internet connection\n';
+            errorMessage += '2. Large model size\n';
+            errorMessage += '3. Server issues\n\n';
+            errorMessage += 'Try again or use: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
         } else {
             errorMessage += 'Error details: ' + error.message + '\n\n';
-            errorMessage += 'Try using: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
+            errorMessage += 'Try using this working model: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
         }
 
         alert(errorMessage);
+        
+        // Update UI to show error
+        document.getElementById('pose-name').textContent = 'Model loading failed. Check console for details.';
     }
 }
 
