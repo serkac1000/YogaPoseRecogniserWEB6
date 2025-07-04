@@ -106,7 +106,7 @@ function showSettingsPage() {
     }
 }
 
-function startCameraRecognition() {
+async function startCameraRecognition() {
     if (!isRecognitionRunning && model) {
         isRecognitionRunning = true;
         currentPoseIndex = 0; // Reset to pose 1
@@ -116,7 +116,7 @@ function startCameraRecognition() {
         document.getElementById('stop-recognition-button').style.display = 'inline-block';
         
         // Always reinitialize webcam to ensure it works properly
-        initWebcam();
+        await initWebcam();
     }
 }
 
@@ -180,7 +180,10 @@ async function initWebcam() {
     canvas.width = size;
     canvas.height = size;
 
-    window.requestAnimationFrame(loop);
+    // Only start the loop if recognition is running
+    if (isRecognitionRunning) {
+        window.requestAnimationFrame(loop);
+    }
 }
 
 async function loop(timestamp) {
