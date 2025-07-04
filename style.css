@@ -167,6 +167,14 @@ button:hover {
     background: #45a049;
 }
 
+.control-buttons {
+    margin: 20px 0;
+}
+
+.control-buttons button {
+    margin: 5px;
+}
+
 .confidence-container {
     margin: 20px auto;
     max-width: 400px;

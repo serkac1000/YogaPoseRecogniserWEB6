@@ -9,10 +9,13 @@ const poseOrder = ['Pose1', 'Pose2', 'Pose3', 'Pose4', 'Pose5', 'Pose6', 'Pose7'
 let audioEnabled = true;
 let recognitionDelay = 3;
 let accuracyThreshold = 0.5;
+let isRecognitionRunning = false;
 
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startRecognition);
 document.getElementById('back-button').addEventListener('click', showSettingsPage);
+document.getElementById('start-recognition-button').addEventListener('click', startCameraRecognition);
+document.getElementById('stop-recognition-button').addEventListener('click', stopCameraRecognition);
 document.getElementById('audio-toggle').addEventListener('change', (e) => {
     audioEnabled = e.target.checked;
     localStorage.setItem('audioEnabled', audioEnabled);
@@ -99,6 +102,47 @@ function showSettingsPage() {
     document.getElementById('settings-page').classList.add('active');
     if (webcam) {
         webcam.stop();
+        isRecognitionRunning = false;
+    }
+}
+
+function startCameraRecognition() {
+    if (!isRecognitionRunning && model) {
+        isRecognitionRunning = true;
+        currentPoseIndex = 0; // Reset to pose 1
+        lastPoseTime = 0;
+        isTransitioning = false;
+        document.getElementById('start-recognition-button').style.display = 'none';
+        document.getElementById('stop-recognition-button').style.display = 'inline-block';
+        
+        if (!webcam) {
+            init(document.getElementById('model-url').value);
+        } else {
+            webcam.play();
+            window.requestAnimationFrame(loop);
+        }
+    }
+}
+
+function stopCameraRecognition() {
+    if (isRecognitionRunning) {
+        isRecognitionRunning = false;
+        if (webcam) {
+            webcam.stop();
+        }
+        document.getElementById('start-recognition-button').style.display = 'inline-block';
+        document.getElementById('stop-recognition-button').style.display = 'none';
+        
+        // Clear displays
+        const canvas = document.getElementById('output');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        document.getElementById('pose-name').textContent = 'Recognition stopped';
+        document.getElementById('confidence-bar').style.width = '0%';
+        document.getElementById('confidence-text').textContent = '0%';
+        document.getElementById('timer-display').style.display = 'none';
+        document.getElementById('current-pose').style.display = 'none';
     }
 }
 
@@ -135,13 +179,19 @@ async function init(URL) {
     canvas.width = size;
     canvas.height = size;
 
+    isRecognitionRunning = true;
+    document.getElementById('start-recognition-button').style.display = 'none';
+    document.getElementById('stop-recognition-button').style.display = 'inline-block';
+
     window.requestAnimationFrame(loop);
 }
 
 async function loop(timestamp) {
-    webcam.update();
-    await predict();
-    window.requestAnimationFrame(loop);
+    if (isRecognitionRunning) {
+        webcam.update();
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
 }
 
 function playBeep() {
