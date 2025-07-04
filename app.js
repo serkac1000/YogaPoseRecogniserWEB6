@@ -246,12 +246,60 @@ async function predict() {
 }
 
 function drawPose(pose) {
+    // Define the skeleton connections (pairs of keypoint indices)
+    const connections = [
+        // Head connections
+        [0, 1], [0, 2], [1, 3], [2, 4], // nose to eyes, eyes to ears
+        
+        // Torso connections
+        [5, 6], [5, 7], [6, 8], [7, 9], [8, 10], // shoulders to arms
+        [5, 11], [6, 12], [11, 12], // shoulders to hips, hip connection
+        
+        // Left arm
+        [7, 9], [9, 11],
+        
+        // Right arm  
+        [8, 10], [10, 12],
+        
+        // Left leg
+        [11, 13], [13, 15],
+        
+        // Right leg
+        [12, 14], [14, 16]
+    ];
+    
+    // Draw skeleton lines
+    ctx.strokeStyle = '#00BFFF';
+    ctx.lineWidth = 3;
+    
+    for (let connection of connections) {
+        const [pointA, pointB] = connection;
+        const keypointA = pose.keypoints[pointA];
+        const keypointB = pose.keypoints[pointB];
+        
+        // Only draw if both keypoints are confident enough
+        if (keypointA && keypointB && keypointA.score > 0.2 && keypointB.score > 0.2) {
+            ctx.beginPath();
+            ctx.moveTo(keypointA.position.x, keypointA.position.y);
+            ctx.lineTo(keypointB.position.x, keypointB.position.y);
+            ctx.stroke();
+        }
+    }
+    
+    // Draw keypoints on top of skeleton
     for (let keypoint of pose.keypoints) {
         if (keypoint.score > 0.2) {
             ctx.beginPath();
-            ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
+            ctx.arc(keypoint.position.x, keypoint.position.y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#FF6B6B';
             ctx.fill();
+            
+            // Add white border to keypoints
+            ctx.beginPath();
+            ctx.arc(keypoint.position.x, keypoint.position.y, 6, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
     }
 }
