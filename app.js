@@ -28,6 +28,9 @@ document.getElementById('accuracy-setting').addEventListener('input', (e) => {
     accuracyThreshold = parseFloat(e.target.value) / 100;
     localStorage.setItem('accuracyThreshold', accuracyThreshold);
 });
+document.getElementById('model-url').addEventListener('input', (e) => {
+    localStorage.setItem('modelUrl', e.target.value);
+});
 
 // File input listeners
 document.getElementById('pose1-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose1'));
@@ -65,6 +68,12 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Load model URL setting
+    const savedModelUrl = localStorage.getItem('modelUrl');
+    if (savedModelUrl !== null) {
+        document.getElementById('model-url').value = savedModelUrl;
+    }
+    
     // Load audio setting
     const savedAudioEnabled = localStorage.getItem('audioEnabled');
     if (savedAudioEnabled !== null) {
@@ -91,6 +100,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     console.log('Settings loaded:', {
+        modelUrl: document.getElementById('model-url').value,
         audioEnabled: audioEnabled,
         recognitionDelay: recognitionDelay,
         accuracyThreshold: accuracyThreshold
@@ -215,12 +225,15 @@ async function init(URL) {
             errorMessage += '1. Your internet connection\n';
             errorMessage += '2. The model URL is correct\n';
             errorMessage += '3. The model is publicly accessible\n\n';
-            errorMessage += 'Current URL: ' + URL;
+            errorMessage += 'Current URL: ' + URL + '\n\n';
+            errorMessage += 'Try using: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
         } else if (error.message.includes('CORS')) {
             errorMessage += 'CORS error - the model server is blocking access.\n';
-            errorMessage += 'Try using a different model URL or hosting the model locally.';
+            errorMessage += 'Try using a different model URL from Teachable Machine.\n';
+            errorMessage += 'Recommended: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
         } else {
-            errorMessage += 'Error details: ' + error.message;
+            errorMessage += 'Error details: ' + error.message + '\n\n';
+            errorMessage += 'Try using: https://teachablemachine.withgoogle.com/models/BmWV2_mfv/';
         }
         
         alert(errorMessage);
