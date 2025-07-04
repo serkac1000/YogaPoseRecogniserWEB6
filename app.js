@@ -185,63 +185,97 @@ async function startRecognition() {
 }
 
 async function init(URL) {
-    try {
-        console.log('Loading model from:', URL);
+    // Fallback model URLs in case the primary one fails
+    const fallbackUrls = [
+        URL,
+        'https://teachablemachine.withgoogle.com/models/5H-V2YcoQ/',
+        'https://teachablemachine.withgoogle.com/models/BmWV2_mfv/',
+        'https://teachablemachine.withgoogle.com/models/XjSP8dCtn/'
+    ];
+
+    for (let i = 0; i < fallbackUrls.length; i++) {
+        let currentUrl = fallbackUrls[i];
         
-        // Ensure URL ends with slash
-        if (!URL.endsWith('/')) {
-            URL += '/';
-        }
-
-        // Validate URL format
-        if (!URL.includes('teachablemachine.withgoogle.com')) {
-            throw new Error('Invalid model URL. Must be from teachablemachine.withgoogle.com');
-        }
-
-        // Add timeout and retry mechanism with better error handling
-        const loadWithTimeout = async (url, timeout = 20000) => {
-            try {
-                console.log('Attempting to load model from:', url);
-                
-                // Test if the model.json file is accessible first
-                const testResponse = await fetch(url + 'model.json', { 
-                    method: 'HEAD',
-                    mode: 'cors'
-                });
-                
-                if (!testResponse.ok) {
-                    throw new Error(`Model not accessible: ${testResponse.status} ${testResponse.statusText}`);
-                }
-                
-                return Promise.race([
-                    tmPose.load(url + 'model.json', url + 'metadata.json'),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Model loading timeout after 20 seconds')), timeout)
-                    )
-                ]);
-            } catch (fetchError) {
-                console.error('Fetch error:', fetchError);
-                throw new Error(`Cannot access model URL: ${fetchError.message}`);
+        try {
+            console.log(`Attempting to load model from (${i + 1}/${fallbackUrls.length}):`, currentUrl);
+            
+            // Ensure URL ends with slash
+            if (!currentUrl.endsWith('/')) {
+                currentUrl += '/';
             }
-        };
 
-        // Try loading with timeout
-        model = await loadWithTimeout(URL);
+            // Validate URL format
+            if (!currentUrl.includes('teachablemachine.withgoogle.com')) {
+                console.log('Skipping invalid URL:', currentUrl);
+                continue;
+            }
+
+            // Add timeout and retry mechanism with better error handling
+            const loadWithTimeout = async (url, timeout = 15000) => {
+                try {
+                    console.log('Testing model accessibility:', url);
+                    
+                    // Test if the model.json file is accessible first
+                    const testResponse = await fetch(url + 'model.json', { 
+                        method: 'HEAD',
+                        mode: 'cors'
+                    });
+                    
+                    if (!testResponse.ok) {
+                        throw new Error(`Model not accessible: ${testResponse.status} ${testResponse.statusText}`);
+                    }
+                    
+                    console.log('Model accessible, loading...');
+                    return Promise.race([
+                        tmPose.load(url + 'model.json', url + 'metadata.json'),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Model loading timeout after 15 seconds')), timeout)
+                        )
+                    ]);
+                } catch (fetchError) {
+                    console.error('Fetch error:', fetchError);
+                    throw new Error(`Cannot access model URL: ${fetchError.message}`);
+                }
+            };
+
+            // Try loading with timeout
+            model = await loadWithTimeout(currentUrl);
         
         if (!model) {
-            throw new Error('Model loaded but is null or undefined');
-        }
-        
-        maxPredictions = model.getTotalClasses();
-        console.log('Model loaded successfully. Classes:', maxPredictions);
+                throw new Error('Model loaded but is null or undefined');
+            }
+            
+            maxPredictions = model.getTotalClasses();
+            console.log(`Model loaded successfully from: ${currentUrl}. Classes: ${maxPredictions}`);
 
-        // Show start button once model is loaded
-        document.getElementById('start-recognition-button').style.display = 'inline-block';
-        
-        // Clear any previous error messages
-        document.getElementById('pose-name').textContent = 'Model loaded successfully!';
-        
-    } catch (error) {
+            // Update the input field with the working URL
+            document.getElementById('model-url').value = currentUrl;
+            localStorage.setItem('modelUrl', currentUrl);
+
+            // Show start button once model is loaded
+            document.getElementById('start-recognition-button').style.display = 'inline-block';
+            
+            // Clear any previous error messages
+            document.getElementById('pose-name').textContent = 'Model loaded successfully!';
+            
+            return; // Success, exit the function
+            
+        } catch (error) {
+            console.error(`Failed to load model from ${currentUrl}:`, error);
+            
+            // If this is not the last URL, continue to the next one
+            if (i < fallbackUrls.length - 1) {
+                console.log('Trying next fallback URL...');
+                continue;
+            }
+            
+            // If we've exhausted all URLs, show the error
+            console.error('All model URLs failed');
+        }
+    }
+    
+    // If we get here, all URLs failed
+    try {
         console.error('Error loading model:', error);
         let errorMessage = 'Failed to load the pose recognition model.\n\n';
         
