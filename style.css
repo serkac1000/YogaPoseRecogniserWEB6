@@ -109,3 +109,44 @@ button {
 button:hover {
     background: #45a049;
 }
+
+.confidence-container {
+    margin: 20px auto;
+    max-width: 400px;
+    text-align: center;
+}
+
+.confidence-label {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.confidence-bar-background {
+    width: 100%;
+    height: 30px;
+    background-color: #ddd;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.confidence-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    border-radius: 15px;
+    background-color: #ff4444;
+}
+
+.confidence-bar.correct {
+    background-color: #4CAF50;
+}
+
+.confidence-text {
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 8px;
+    color: #333;
+}

@@ -163,7 +163,17 @@ async function predict() {
     currentPose.src = poseImages.get(expectedPose);
     currentPose.style.display = 'block';
 
+    // Update confidence bar
+    const confidenceBar = document.getElementById('confidence-bar');
+    const confidenceText = document.getElementById('confidence-text');
+    const confidencePercent = (maxConfidence * 100).toFixed(1);
+    
+    confidenceBar.style.width = confidencePercent + '%';
+    confidenceText.textContent = confidencePercent + '%';
+
     if (maxConfidence > 0.5 && bestPose === expectedPose) {
+        confidenceBar.classList.add('correct');
+        
         if (lastPoseTime === 0) {
             lastPoseTime = Date.now();
         }
@@ -177,6 +187,7 @@ async function predict() {
         
         labelContainer.textContent = `Current Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%\nHold for: ${Math.max(0, holdTime)}s`;
     } else {
+        confidenceBar.classList.remove('correct');
         lastPoseTime = 0;
         labelContainer.textContent = `Expected Pose: ${expectedPose}\nCurrent Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%`;
     }
