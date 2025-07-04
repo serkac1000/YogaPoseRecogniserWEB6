@@ -5,16 +5,30 @@ let currentPoseImage = null;
 let currentPoseIndex = 0;
 let poseHoldTimer = 3;
 let lastPoseTime = 0;
-const poseOrder = ['Pose1', 'Pose2', 'Pose3'];
+const poseOrder = ['Pose1', 'Pose2', 'Pose3', 'Pose4', 'Pose5', 'Pose6', 'Pose7'];
+let audioEnabled = true;
+let recognitionDelay = 3;
 
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startRecognition);
 document.getElementById('back-button').addEventListener('click', showSettingsPage);
+document.getElementById('audio-toggle').addEventListener('change', (e) => {
+    audioEnabled = e.target.checked;
+    localStorage.setItem('audioEnabled', audioEnabled);
+});
+document.getElementById('delay-setting').addEventListener('input', (e) => {
+    recognitionDelay = parseFloat(e.target.value);
+    localStorage.setItem('recognitionDelay', recognitionDelay);
+});
 
 // File input listeners
 document.getElementById('pose1-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose1'));
 document.getElementById('pose2-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose2'));
 document.getElementById('pose3-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose3'));
+document.getElementById('pose4-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose4'));
+document.getElementById('pose5-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose5'));
+document.getElementById('pose6-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose6'));
+document.getElementById('pose7-image').addEventListener('change', (e) => handleImageUpload(e, 'Pose7'));
 
 function handleImageUpload(event, poseName) {
     const file = event.target.files[0];
@@ -31,9 +45,9 @@ function handleImageUpload(event, poseName) {
     }
 }
 
-// Load saved images on page load
+// Load saved images and settings on page load
 window.addEventListener('DOMContentLoaded', () => {
-    ['Pose1', 'Pose2', 'Pose3'].forEach(poseName => {
+    ['Pose1', 'Pose2', 'Pose3', 'Pose4', 'Pose5', 'Pose6', 'Pose7'].forEach(poseName => {
         const savedImage = localStorage.getItem(`pose_${poseName}`);
         if (savedImage) {
             const preview = document.getElementById(`${poseName.toLowerCase()}-preview`);
@@ -42,6 +56,20 @@ window.addEventListener('DOMContentLoaded', () => {
             poseImages.set(poseName, savedImage);
         }
     });
+    
+    // Load audio setting
+    const savedAudioEnabled = localStorage.getItem('audioEnabled');
+    if (savedAudioEnabled !== null) {
+        audioEnabled = savedAudioEnabled === 'true';
+        document.getElementById('audio-toggle').checked = audioEnabled;
+    }
+    
+    // Load delay setting
+    const savedDelay = localStorage.getItem('recognitionDelay');
+    if (savedDelay !== null) {
+        recognitionDelay = parseFloat(savedDelay);
+        document.getElementById('delay-setting').value = recognitionDelay;
+    }
 });
 
 function showSettingsPage() {
@@ -53,8 +81,8 @@ function showSettingsPage() {
 }
 
 async function startRecognition() {
-    if (poseImages.size < 3) {
-        alert('Please upload all three pose images first');
+    if (poseImages.size < 7) {
+        alert('Please upload all seven pose images first');
         return;
     }
     
@@ -94,6 +122,24 @@ async function loop(timestamp) {
     window.requestAnimationFrame(loop);
 }
 
+function playBeep() {
+    if (audioEnabled) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.2);
+    }
+}
+
 async function predict() {
     const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
     const prediction = await model.predict(posenetOutput);
@@ -121,9 +167,10 @@ async function predict() {
         if (lastPoseTime === 0) {
             lastPoseTime = Date.now();
         }
-        const holdTime = 3 - Math.floor((Date.now() - lastPoseTime) / 1000);
+        const holdTime = recognitionDelay - Math.floor((Date.now() - lastPoseTime) / 1000);
         
         if (holdTime <= 0) {
+            playBeep();
             currentPoseIndex = (currentPoseIndex + 1) % poseOrder.length;
             lastPoseTime = 0;
         }

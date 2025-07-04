@@ -37,11 +37,15 @@ body {
     margin-bottom: 5px;
 }
 
-.form-group input[type="text"] {
+.form-group input[type="text"], .form-group input[type="number"] {
     width: 100%;
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 8px;
 }
 
 .pose-preview {
