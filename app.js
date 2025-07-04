@@ -8,6 +8,7 @@ let lastPoseTime = 0;
 const poseOrder = ['Pose1', 'Pose2', 'Pose3', 'Pose4', 'Pose5', 'Pose6', 'Pose7'];
 let audioEnabled = true;
 let recognitionDelay = 3;
+let accuracyThreshold = 0.5;
 
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startRecognition);
@@ -19,6 +20,10 @@ document.getElementById('audio-toggle').addEventListener('change', (e) => {
 document.getElementById('delay-setting').addEventListener('input', (e) => {
     recognitionDelay = parseFloat(e.target.value);
     localStorage.setItem('recognitionDelay', recognitionDelay);
+});
+document.getElementById('accuracy-setting').addEventListener('input', (e) => {
+    accuracyThreshold = parseFloat(e.target.value) / 100;
+    localStorage.setItem('accuracyThreshold', accuracyThreshold);
 });
 
 // File input listeners
@@ -69,6 +74,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedDelay !== null) {
         recognitionDelay = parseFloat(savedDelay);
         document.getElementById('delay-setting').value = recognitionDelay;
+    }
+    
+    // Load accuracy setting
+    const savedAccuracy = localStorage.getItem('accuracyThreshold');
+    if (savedAccuracy !== null) {
+        accuracyThreshold = parseFloat(savedAccuracy);
+        document.getElementById('accuracy-setting').value = accuracyThreshold * 100;
     }
 });
 
@@ -196,7 +208,7 @@ async function predict() {
         }
     }
 
-    if (maxConfidence > 0.5 && bestPose === expectedPose) {
+    if (maxConfidence > accuracyThreshold && bestPose === expectedPose) {
         confidenceBar.classList.add('correct');
         currentPose.classList.remove('waiting');
         currentPose.classList.add('correct');
