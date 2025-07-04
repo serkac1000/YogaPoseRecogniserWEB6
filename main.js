@@ -1,44 +1,45 @@
-
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
 function createWindow() {
-    const win = new BrowserWindow({
-        width: 1024,
-        height: 768,
-        title: 'Yoga Pose Recognition',
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-            webSecurity: false
-        },
-        icon: path.join(__dirname, 'icon.ico'),
-        show: false
-    });
+  const mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: false, // Allow loading external resources
+      allowRunningInsecureContent: true // Allow mixed content
+    }
+  });
 
-    win.loadFile('index.html');
-    
-    // Show window when ready to prevent visual flash
-    win.once('ready-to-show', () => {
-        win.show();
-    });
-    
-    // Optional: Open DevTools in development
-    // win.webContents.openDevTools();
+  // Enable developer tools for debugging
+  mainWindow.webContents.openDevTools();
+
+  // Handle external URLs
+  mainWindow.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
+    details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+    callback({ cancel: false, requestHeaders: details.requestHeaders });
+  });
+
+  mainWindow.loadFile('index.html');
+
+  // Handle console logs for debugging
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    console.log('Renderer:', message);
+  });
 }
 
-app.whenReady().then(() => {
-    createWindow();
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
-        }
-    });
-});
+app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });

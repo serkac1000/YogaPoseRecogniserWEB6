@@ -177,17 +177,53 @@ async function startRecognition() {
 
 async function init(URL) {
     try {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
+        console.log('Loading model from URL:', URL);
+        
+        // Ensure URL ends with slash
+        const baseURL = URL.endsWith('/') ? URL : URL + '/';
+        const modelURL = baseURL + "model.json";
+        const metadataURL = baseURL + "metadata.json";
+        
+        console.log('Model URL:', modelURL);
+        console.log('Metadata URL:', metadataURL);
+
+        // Test if URLs are accessible
+        try {
+            const testResponse = await fetch(modelURL);
+            if (!testResponse.ok) {
+                throw new Error(`Model URL not accessible: ${testResponse.status} ${testResponse.statusText}`);
+            }
+            console.log('Model URL is accessible');
+        } catch (fetchError) {
+            console.error('URL accessibility test failed:', fetchError);
+            throw new Error(`Cannot access model URL. Please check your internet connection and URL: ${fetchError.message}`);
+        }
 
         model = await tmPose.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
+        
+        console.log('Model loaded successfully with', maxPredictions, 'classes');
 
         // Show start button once model is loaded
         document.getElementById('start-recognition-button').style.display = 'inline-block';
     } catch (error) {
         console.error('Error loading model:', error);
-        alert('Failed to load the pose recognition model. Please check the model URL and try again.');
+        let errorMessage = 'Failed to load the pose recognition model.\n\n';
+        
+        if (error.message.includes('Cannot access model URL')) {
+            errorMessage += 'The model URL is not accessible. Please check:\n';
+            errorMessage += '1. Your internet connection\n';
+            errorMessage += '2. The model URL is correct\n';
+            errorMessage += '3. The model is publicly accessible\n\n';
+            errorMessage += 'Current URL: ' + URL;
+        } else if (error.message.includes('CORS')) {
+            errorMessage += 'CORS error - the model server is blocking access.\n';
+            errorMessage += 'Try using a different model URL or hosting the model locally.';
+        } else {
+            errorMessage += 'Error details: ' + error.message;
+        }
+        
+        alert(errorMessage);
     }
 }
 
