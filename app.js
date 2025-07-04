@@ -140,6 +140,9 @@ function playBeep() {
     }
 }
 
+let isTransitioning = false;
+let transitionStartTime = 0;
+
 async function predict() {
     const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
     const prediction = await model.predict(posenetOutput);
@@ -160,6 +163,8 @@ async function predict() {
 
     const expectedPose = poseOrder[currentPoseIndex];
     const currentPose = document.getElementById('current-pose');
+    const timerDisplay = document.getElementById('timer-display');
+    
     currentPose.src = poseImages.get(expectedPose);
     currentPose.style.display = 'block';
 
@@ -171,8 +176,30 @@ async function predict() {
     confidenceBar.style.width = confidencePercent + '%';
     confidenceText.textContent = confidencePercent + '%';
 
+    // Handle transition countdown
+    if (isTransitioning) {
+        const transitionTime = 3 - Math.floor((Date.now() - transitionStartTime) / 1000);
+        if (transitionTime > 0) {
+            timerDisplay.textContent = transitionTime;
+            timerDisplay.style.display = 'block';
+            currentPose.classList.add('correct');
+            labelContainer.textContent = `Next pose in: ${transitionTime}s`;
+            return;
+        } else {
+            // Transition complete
+            isTransitioning = false;
+            timerDisplay.style.display = 'none';
+            currentPoseIndex = (currentPoseIndex + 1) % poseOrder.length;
+            lastPoseTime = 0;
+            currentPose.classList.remove('correct');
+            currentPose.classList.add('waiting');
+        }
+    }
+
     if (maxConfidence > 0.5 && bestPose === expectedPose) {
         confidenceBar.classList.add('correct');
+        currentPose.classList.remove('waiting');
+        currentPose.classList.add('correct');
         
         if (lastPoseTime === 0) {
             lastPoseTime = Date.now();
@@ -181,13 +208,16 @@ async function predict() {
         
         if (holdTime <= 0) {
             playBeep();
-            currentPoseIndex = (currentPoseIndex + 1) % poseOrder.length;
+            isTransitioning = true;
+            transitionStartTime = Date.now();
             lastPoseTime = 0;
         }
         
         labelContainer.textContent = `Current Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%\nHold for: ${Math.max(0, holdTime)}s`;
     } else {
         confidenceBar.classList.remove('correct');
+        currentPose.classList.remove('correct');
+        currentPose.classList.add('waiting');
         lastPoseTime = 0;
         labelContainer.textContent = `Expected Pose: ${expectedPose}\nCurrent Pose: ${bestPose}\nConfidence: ${(maxConfidence * 100).toFixed(2)}%`;
     }
