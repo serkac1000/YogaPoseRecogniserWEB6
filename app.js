@@ -1,3 +1,4 @@
+
 let model, webcam, ctx, labelContainer, maxPredictions;
 const poseImages = new Map();
 let currentPoseImage = null;
@@ -7,6 +8,7 @@ let lastPoseTime = 0;
 let isTransitioning = false;
 let isRecognitionRunning = false;
 let confidenceScore = 0;
+let activePoses = [];
 
 // Define all 7 poses
 const poses = [
@@ -34,13 +36,73 @@ function loadSettings() {
         modelSource: 'online',
         audioEnabled: true,
         recognitionDelay: 3,
-        accuracyThreshold: 0.5
+        accuracyThreshold: 0.5,
+        activePoses: [true, true, true, true, true, true, true]
     };
     return { ...defaultSettings, ...settings };
 }
 
 function saveSettings(settings) {
     localStorage.setItem('yogaAppSettings', JSON.stringify(settings));
+}
+
+function saveLocalModelFiles() {
+    if (localModelFiles.modelJson) {
+        localStorage.setItem('localModelJson', JSON.stringify(localModelFiles.modelJson));
+    }
+    if (localModelFiles.metadataJson) {
+        localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
+    }
+    if (localModelFiles.weightsBin) {
+        // Convert ArrayBuffer to base64 for storage
+        const uint8Array = new Uint8Array(localModelFiles.weightsBin);
+        const binaryString = Array.from(uint8Array).map(byte => String.fromCharCode(byte)).join('');
+        const base64 = btoa(binaryString);
+        localStorage.setItem('localWeightsBin', base64);
+    }
+}
+
+function loadLocalModelFiles() {
+    try {
+        const modelJson = localStorage.getItem('localModelJson');
+        const metadataJson = localStorage.getItem('localMetadataJson');
+        const weightsBin = localStorage.getItem('localWeightsBin');
+
+        if (modelJson) {
+            localModelFiles.modelJson = JSON.parse(modelJson);
+            document.getElementById('model-json').nextElementSibling.classList.add('file-loaded');
+            document.getElementById('model-json').nextElementSibling.textContent = '✓ model.json (saved)';
+        }
+        if (metadataJson) {
+            localModelFiles.metadataJson = JSON.parse(metadataJson);
+            document.getElementById('metadata-json').nextElementSibling.classList.add('file-loaded');
+            document.getElementById('metadata-json').nextElementSibling.textContent = '✓ metadata.json (saved)';
+        }
+        if (weightsBin) {
+            // Convert base64 back to ArrayBuffer
+            const binaryString = atob(weightsBin);
+            const uint8Array = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                uint8Array[i] = binaryString.charCodeAt(i);
+            }
+            localModelFiles.weightsBin = uint8Array.buffer;
+            document.getElementById('weights-bin').nextElementSibling.classList.add('file-loaded');
+            document.getElementById('weights-bin').nextElementSibling.textContent = '✓ weights.bin (saved)';
+        }
+    } catch (error) {
+        console.error('Error loading saved model files:', error);
+    }
+}
+
+function getActivePoses() {
+    activePoses = [];
+    for (let i = 0; i < 7; i++) {
+        const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
+        if (checkbox && checkbox.checked) {
+            activePoses.push(i);
+        }
+    }
+    return activePoses;
 }
 
 // Initialize settings on page load
@@ -58,6 +120,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelector(`input[name="model-source"][value="${settings.modelSource}"]`).checked = true;
     toggleModelSource();
 
+    // Load pose checkboxes state
+    if (settings.activePoses) {
+        for (let i = 0; i < 7; i++) {
+            const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
+            if (checkbox) {
+                checkbox.checked = settings.activePoses[i] || false;
+            }
+        }
+    }
+
     // Update accuracy display
     document.getElementById('accuracy-value').textContent = settings.accuracyThreshold;
 
@@ -71,8 +143,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('metadata-json').addEventListener('change', (e) => handleLocalFile(e, 'metadataJson'));
     document.getElementById('weights-bin').addEventListener('change', (e) => handleLocalFile(e, 'weightsBin'));
 
-    // Load pose images
+    // Load pose images and local model files
     loadPoseImages();
+    loadLocalModelFiles();
 });
 
 function loadPoseImages() {
@@ -151,6 +224,9 @@ function handleLocalFile(event, fileType) {
             label.textContent = `✓ ${file.name}`;
             
             console.log(`Loaded ${fileType}:`, file.name);
+            
+            // Save to localStorage
+            saveLocalModelFiles();
         };
         
         if (fileType === 'weightsBin') {
@@ -202,14 +278,29 @@ function validateLocalFiles() {
 async function startRecognition() {
     const modelSource = document.querySelector('input[name="model-source"]:checked').value;
 
+    // Get active poses
+    const activePosesList = getActivePoses();
+    if (activePosesList.length === 0) {
+        alert('Please select at least one pose to practice.');
+        return;
+    }
+
     // Save current settings
     const settings = {
         modelUrl: document.getElementById('model-url').value,
         modelSource: modelSource,
         audioEnabled: document.getElementById('audio-enabled').checked,
         recognitionDelay: parseInt(document.getElementById('recognition-delay').value),
-        accuracyThreshold: parseFloat(document.getElementById('accuracy-threshold').value)
+        accuracyThreshold: parseFloat(document.getElementById('accuracy-threshold').value),
+        activePoses: []
     };
+
+    // Save active poses state
+    for (let i = 0; i < 7; i++) {
+        const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
+        settings.activePoses[i] = checkbox ? checkbox.checked : false;
+    }
+
     saveSettings(settings);
 
     // Validate based on model source
@@ -371,7 +462,9 @@ async function setupCamera() {
         videoContainer.appendChild(webcamContainer);
     }
 
-    document.getElementById('webcam-container').appendChild(webcam.canvas);
+    // Clear existing webcam canvas
+    container.innerHTML = '';
+    container.appendChild(webcam.canvas);
 
     // Set up canvas for drawing
     const canvas = document.getElementById('output');
@@ -389,6 +482,9 @@ function showSettingsPage() {
         webcam.stop();
         isRecognitionRunning = false;
     }
+    // Reset button states
+    document.getElementById('start-recognition-button').style.display = 'inline-block';
+    document.getElementById('stop-recognition-button').style.display = 'none';
 }
 
 async function startCameraRecognition() {
@@ -396,9 +492,13 @@ async function startCameraRecognition() {
         try {
             console.log('Starting camera recognition...');
             isRecognitionRunning = true;
+            
+            // Get active poses and set current index to first active pose
+            getActivePoses();
             currentPoseIndex = 0;
             lastPoseTime = 0;
             isTransitioning = false;
+            
             document.getElementById('start-recognition-button').style.display = 'none';
             document.getElementById('stop-recognition-button').style.display = 'inline-block';
 
@@ -436,11 +536,14 @@ function stopCameraRecognition() {
 }
 
 function updateCurrentPose() {
-    const pose = poses[currentPoseIndex];
+    if (activePoses.length === 0) return;
+    
+    const actualPoseIndex = activePoses[currentPoseIndex];
+    const pose = poses[actualPoseIndex];
     document.getElementById('pose-name').textContent = pose.name;
 
     const poseCompare = document.getElementById('pose-compare');
-    const savedImage = poseImages.get(currentPoseIndex);
+    const savedImage = poseImages.get(actualPoseIndex);
 
     if (savedImage) {
         poseCompare.src = savedImage;
@@ -481,9 +584,13 @@ async function predict() {
             drawPose(pose);
         }
 
+        // Get current active pose index
+        if (activePoses.length === 0) return;
+        const actualPoseIndex = activePoses[currentPoseIndex];
+
         // Get current pose prediction
-        if (prediction && prediction.length > currentPoseIndex) {
-            confidenceScore = prediction[currentPoseIndex].probability;
+        if (prediction && prediction.length > actualPoseIndex) {
+            confidenceScore = prediction[actualPoseIndex].probability;
             updateConfidenceDisplay();
 
             const settings = loadSettings();
@@ -545,13 +652,18 @@ function handleCorrectPose() {
 
 function resetPoseTimer() {
     lastPoseTime = 0;
-    document.getElementById('timer-display').style.display = 'none';
+    const timerDisplay = document.getElementById('timer-display');
+    if (timerDisplay) {
+        timerDisplay.style.display = 'none';
+    }
 }
 
 function showTimer(seconds) {
     const timerDisplay = document.getElementById('timer-display');
-    timerDisplay.textContent = seconds;
-    timerDisplay.style.display = 'block';
+    if (timerDisplay) {
+        timerDisplay.textContent = seconds;
+        timerDisplay.style.display = 'block';
+    }
 }
 
 function moveToNextPose() {
@@ -562,9 +674,12 @@ function moveToNextPose() {
     }
 
     lastPoseTime = 0;
-    document.getElementById('timer-display').style.display = 'none';
+    const timerDisplay = document.getElementById('timer-display');
+    if (timerDisplay) {
+        timerDisplay.style.display = 'none';
+    }
 
-    currentPoseIndex = (currentPoseIndex + 1) % poses.length;
+    currentPoseIndex = (currentPoseIndex + 1) % activePoses.length;
     updateCurrentPose();
 
     if (currentPoseIndex === 0) {
@@ -576,22 +691,26 @@ function moveToNextPose() {
 }
 
 function playSuccessSound() {
-    // Create a simple beep sound
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    try {
+        // Create a simple beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
 
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
 
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+        console.error('Audio not supported or blocked:', error);
+    }
 }
 
 function drawPose(pose) {

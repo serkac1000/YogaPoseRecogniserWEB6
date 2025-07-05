@@ -40,41 +40,55 @@
                         <label for="weights-bin">weights.bin</label>
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label>Pose 1 Image:</label>
-                    <input type="file" id="pose-1-image" accept="image/*" onchange="handleImageUpload(event, 1)">
-                    <img id="pose-1-preview" class="pose-preview">
+                    <label>Select Active Poses:</label>
+                    <div class="poses-selection">
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-1-enabled" checked>
+                            <label for="pose-1-enabled">Pose 1 (Mountain Pose)</label>
+                            <input type="file" id="pose-1-image" accept="image/*" onchange="handleImageUpload(event, 1)">
+                            <img id="pose-1-preview" class="pose-preview">
+                        </div>
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-2-enabled" checked>
+                            <label for="pose-2-enabled">Pose 2 (Tree Pose)</label>
+                            <input type="file" id="pose-2-image" accept="image/*" onchange="handleImageUpload(event, 2)">
+                            <img id="pose-2-preview" class="pose-preview">
+                        </div>
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-3-enabled" checked>
+                            <label for="pose-3-enabled">Pose 3 (Warrior I)</label>
+                            <input type="file" id="pose-3-image" accept="image/*" onchange="handleImageUpload(event, 3)">
+                            <img id="pose-3-preview" class="pose-preview">
+                        </div>
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-4-enabled" checked>
+                            <label for="pose-4-enabled">Pose 4 (Warrior II)</label>
+                            <input type="file" id="pose-4-image" accept="image/*" onchange="handleImageUpload(event, 4)">
+                            <img id="pose-4-preview" class="pose-preview">
+                        </div>
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-5-enabled" checked>
+                            <label for="pose-5-enabled">Pose 5 (Triangle Pose)</label>
+                            <input type="file" id="pose-5-image" accept="image/*" onchange="handleImageUpload(event, 5)">
+                            <img id="pose-5-preview" class="pose-preview">
+                        </div>
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-6-enabled" checked>
+                            <label for="pose-6-enabled">Pose 6 (Child's Pose)</label>
+                            <input type="file" id="pose-6-image" accept="image/*" onchange="handleImageUpload(event, 6)">
+                            <img id="pose-6-preview" class="pose-preview">
+                        </div>
+                        <div class="pose-item">
+                            <input type="checkbox" id="pose-7-enabled" checked>
+                            <label for="pose-7-enabled">Pose 7 (Downward Dog)</label>
+                            <input type="file" id="pose-7-image" accept="image/*" onchange="handleImageUpload(event, 7)">
+                            <img id="pose-7-preview" class="pose-preview">
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Pose 2 Image:</label>
-                    <input type="file" id="pose-2-image" accept="image/*" onchange="handleImageUpload(event, 2)">
-                    <img id="pose-2-preview" class="pose-preview">
-                </div>
-                <div class="form-group">
-                    <label>Pose 3 Image:</label>
-                    <input type="file" id="pose-3-image" accept="image/*" onchange="handleImageUpload(event, 3)">
-                    <img id="pose-3-preview" class="pose-preview">
-                </div>
-                <div class="form-group">
-                    <label>Pose 4 Image:</label>
-                    <input type="file" id="pose-4-image" accept="image/*" onchange="handleImageUpload(event, 4)">
-                    <img id="pose-4-preview" class="pose-preview">
-                </div>
-                <div class="form-group">
-                    <label>Pose 5 Image:</label>
-                    <input type="file" id="pose-5-image" accept="image/*" onchange="handleImageUpload(event, 5)">
-                    <img id="pose-5-preview" class="pose-preview">
-                </div>
-                <div class="form-group">
-                    <label>Pose 6 Image:</label>
-                    <input type="file" id="pose-6-image" accept="image/*" onchange="handleImageUpload(event, 6)">
-                    <img id="pose-6-preview" class="pose-preview">
-                </div>
-                <div class="form-group">
-                    <label>Pose 7 Image:</label>
-                    <input type="file" id="pose-7-image" accept="image/*" onchange="handleImageUpload(event, 7)">
-                    <img id="pose-7-preview" class="pose-preview">
-                </div>
+
                 <div class="settings-row">
                     <div class="form-group compact">
                         <label>
@@ -111,7 +125,7 @@
                 <div id="confidence-text" class="confidence-text">0%</div>
             </div>
             <div class="control-buttons">
-                <button id="start-recognition-button" onclick="startCameraRecognition()" style="display: none;">▶️ Start</button>
+                <button id="start-recognition-button" onclick="startCameraRecognition()">▶️ Start</button>
                 <button id="stop-recognition-button" onclick="stopCameraRecognition()" style="display: none;">⏹️ Stop</button>
                 <button onclick="showSettingsPage()">Back to Settings</button>
             </div>
