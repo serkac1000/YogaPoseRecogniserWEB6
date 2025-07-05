@@ -50,10 +50,10 @@ function saveSettings(settings) {
     localStorage.setItem('yogaAppSettings', JSON.stringify(settings));
 }
 
-// IndexedDB functions for storing large weights.bin file
+// IndexedDB functions for storing large files (weights.bin and images)
 function openWeightsDB() {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('YogaModelWeights', 1);
+        const request = indexedDB.open('YogaModelData', 2);
 
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
@@ -62,6 +62,9 @@ function openWeightsDB() {
             const db = event.target.result;
             if (!db.objectStoreNames.contains('weights')) {
                 db.createObjectStore('weights');
+            }
+            if (!db.objectStoreNames.contains('images')) {
+                db.createObjectStore('images');
             }
         };
     });
@@ -109,6 +112,79 @@ async function loadWeightsFromDB() {
         console.error('Failed to load weights from IndexedDB:', error);
         return null;
     }
+}
+
+// Image storage functions using IndexedDB
+async function saveImageToDB(imageData, poseIndex) {
+    try {
+        const db = await openWeightsDB();
+        const transaction = db.transaction(['images'], 'readwrite');
+        const store = transaction.objectStore('images');
+
+        await new Promise((resolve, reject) => {
+            const request = store.put(imageData, `pose-${poseIndex}`);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve();
+        });
+
+        console.log(`Pose ${poseIndex} image saved to IndexedDB successfully`);
+        return true;
+    } catch (error) {
+        console.error(`Failed to save pose ${poseIndex} image to IndexedDB:`, error);
+        return false;
+    }
+}
+
+async function loadImageFromDB(poseIndex) {
+    try {
+        const db = await openWeightsDB();
+        const transaction = db.transaction(['images'], 'readonly');
+        const store = transaction.objectStore('images');
+
+        return new Promise((resolve, reject) => {
+            const request = store.get(`pose-${poseIndex}`);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                if (request.result) {
+                    console.log(`Pose ${poseIndex} image loaded from IndexedDB`);
+                    resolve(request.result);
+                } else {
+                    resolve(null);
+                }
+            };
+        });
+    } catch (error) {
+        console.error(`Failed to load pose ${poseIndex} image from IndexedDB:`, error);
+        return null;
+    }
+}
+
+// Compress image to reduce storage size
+function compressImage(file, maxWidth = 400, quality = 0.8) {
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+
+        img.onload = () => {
+            // Calculate new dimensions while maintaining aspect ratio
+            let { width, height } = img;
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            // Draw and compress
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressedDataUrl);
+        };
+
+        img.src = URL.createObjectURL(file);
+    });
 }
 
 async function saveLocalModelFiles() {
@@ -213,9 +289,9 @@ function saveAllData() {
     // Save local model files (except weights.bin due to size limits)
     saveLocalModelFiles();
 
-    // Save pose images are already saved automatically when uploaded
+    // Pose images are automatically saved to IndexedDB when uploaded
 
-    alert('Settings and model data saved successfully!\n\nAll files including weights.bin are now saved locally and will persist between sessions.');
+    alert('Settings and model data saved successfully!\n\nAll files including weights.bin and pose images are now saved locally and will persist between sessions.');
 }
 
 function getActivePoses() {
@@ -296,43 +372,72 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('weights-bin').addEventListener('change', (e) => handleLocalFile(e, 'weightsBin'));
 
     // Load pose images and local model files
-    loadPoseImages();
+    await loadPoseImages();
     await loadLocalModelFiles();
 
     console.log('App initialization complete. All saved settings and model files have been restored.');
 });
 
-function loadPoseImages() {
-    poses.forEach((pose, index) => {
-        const fileInput = document.getElementById(`pose-${index + 1}-image`);
+async function loadPoseImages() {
+    for (let index = 0; index < poses.length; index++) {
         const preview = document.getElementById(`pose-${index + 1}-preview`);
 
-        // Load saved image from localStorage if exists
-        const savedImage = localStorage.getItem(`pose-${index + 1}-image`);
+        // Try to load from IndexedDB first
+        let savedImage = await loadImageFromDB(index + 1);
+        
+        // Fallback to localStorage for backward compatibility
+        if (!savedImage) {
+            savedImage = localStorage.getItem(`pose-${index + 1}-image`);
+            if (savedImage) {
+                // Migrate from localStorage to IndexedDB
+                await saveImageToDB(savedImage, index + 1);
+                // Remove from localStorage to free space
+                localStorage.removeItem(`pose-${index + 1}-image`);
+                console.log(`Migrated pose ${index + 1} image from localStorage to IndexedDB`);
+            }
+        }
+
         if (savedImage) {
             preview.src = savedImage;
             preview.style.display = 'block';
             poseImages.set(index, savedImage);
         }
-    });
+    }
 }
 
-function handleImageUpload(event, poseIndex) {
+async function handleImageUpload(event, poseIndex) {
     const file = event.target.files[0];
     const preview = document.getElementById(`pose-${poseIndex}-preview`);
 
     if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const imageData = e.target.result;
-            preview.src = imageData;
+        try {
+            // Compress image to reduce storage size
+            const compressedImageData = await compressImage(file);
+            
+            preview.src = compressedImageData;
             preview.style.display = 'block';
-            poseImages.set(poseIndex - 1, imageData);
+            poseImages.set(poseIndex - 1, compressedImageData);
 
-            // Save to localStorage
-            localStorage.setItem(`pose-${poseIndex}-image`, imageData);
-        };
-        reader.readAsDataURL(file);
+            // Save to IndexedDB instead of localStorage
+            const saved = await saveImageToDB(compressedImageData, poseIndex);
+            
+            if (saved) {
+                console.log(`Pose ${poseIndex} image uploaded and saved successfully`);
+            } else {
+                console.warn(`Pose ${poseIndex} image uploaded but failed to save`);
+                // Fallback to localStorage if IndexedDB fails (though this might still hit quota)
+                try {
+                    localStorage.setItem(`pose-${poseIndex}-image`, compressedImageData);
+                    console.log(`Pose ${poseIndex} image saved to localStorage as fallback`);
+                } catch (e) {
+                    console.error(`Failed to save pose ${poseIndex} image to localStorage:`, e);
+                    alert(`Warning: Could not save pose ${poseIndex} image due to storage limitations. The image will work for this session but may not persist.`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error processing pose ${poseIndex} image:`, error);
+            alert(`Error uploading pose ${poseIndex} image. Please try again.`);
+        }
     }
 }
 
