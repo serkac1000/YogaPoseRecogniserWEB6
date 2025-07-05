@@ -143,21 +143,31 @@ async function loadLocalModelFiles() {
 
         if (modelJson) {
             localModelFiles.modelJson = JSON.parse(modelJson);
-            document.getElementById('model-json').nextElementSibling.classList.add('file-loaded');
-            document.getElementById('model-json').nextElementSibling.textContent = '✓ model.json (saved)';
+            const modelLabel = document.getElementById('model-json')?.nextElementSibling;
+            if (modelLabel) {
+                modelLabel.classList.add('file-loaded');
+                modelLabel.textContent = '✓ model.json (saved)';
+            }
         }
         if (metadataJson) {
             localModelFiles.metadataJson = JSON.parse(metadataJson);
-            document.getElementById('metadata-json').nextElementSibling.classList.add('file-loaded');
-            document.getElementById('metadata-json').nextElementSibling.textContent = '✓ metadata.json (saved)';
+            const metadataLabel = document.getElementById('metadata-json')?.nextElementSibling;
+            if (metadataLabel) {
+                metadataLabel.classList.add('file-loaded');
+                metadataLabel.textContent = '✓ metadata.json (saved)';
+            }
         }
         
         // Load weights.bin from IndexedDB
         const weightsData = await loadWeightsFromDB();
         if (weightsData) {
             localModelFiles.weightsBin = weightsData;
-            document.getElementById('weights-bin').nextElementSibling.classList.add('file-loaded');
-            document.getElementById('weights-bin').nextElementSibling.textContent = '✓ weights.bin (saved)';
+            const weightsLabel = document.getElementById('weights-bin')?.nextElementSibling;
+            if (weightsLabel) {
+                weightsLabel.classList.add('file-loaded');
+                weightsLabel.textContent = '✓ weights.bin (saved)';
+            }
+            console.log('All local model files loaded successfully from storage');
         }
     } catch (error) {
         console.error('Error loading saved model files:', error);
@@ -215,7 +225,7 @@ function getActivePoses() {
 }
 
 // Initialize settings on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const settings = loadSettings();
     console.log('Settings loaded:', settings);
 
@@ -262,7 +272,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load pose images and local model files
     loadPoseImages();
-    loadLocalModelFiles();
+    await loadLocalModelFiles();
+    
+    console.log('App initialization complete. All saved settings and model files have been restored.');
 });
 
 function loadPoseImages() {
@@ -364,8 +376,17 @@ function handleLocalFile(event, fileType) {
     }
 }
 
-function validateLocalFiles() {
+async function validateLocalFiles() {
     const errors = [];
+    
+    // Try to load weights from IndexedDB if not already loaded
+    if (!localModelFiles.weightsBin) {
+        const weightsData = await loadWeightsFromDB();
+        if (weightsData) {
+            localModelFiles.weightsBin = weightsData;
+            console.log('Loaded weights.bin from IndexedDB during validation');
+        }
+    }
     
     if (!localModelFiles.modelJson) {
         errors.push('model.json file is missing - please upload');
@@ -374,7 +395,7 @@ function validateLocalFiles() {
         errors.push('metadata.json file is missing - please upload');
     }
     if (!localModelFiles.weightsBin) {
-        errors.push('weights.bin file is missing - please upload (required each time)');
+        errors.push('weights.bin file is missing - please upload');
     }
     
     if (errors.length > 0) {
@@ -492,8 +513,9 @@ async function startRecognition() {
             return;
         }
     } else {
-        if (!validateLocalFiles()) {
-            alert('Please upload all required model files: model.json, metadata.json, and weights.bin. Note: You need to upload weights.bin each time due to browser storage limits.');
+        const isValid = await validateLocalFiles();
+        if (!isValid) {
+            alert('Please upload all required model files: model.json, metadata.json, and weights.bin.\n\nIf you previously saved these files, they should load automatically.');
             return;
         }
     }
