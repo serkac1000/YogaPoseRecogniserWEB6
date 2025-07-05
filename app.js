@@ -58,7 +58,7 @@ function saveLocalModelFiles() {
         if (localModelFiles.metadataJson) {
             localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
         }
-        // Don't save weights.bin to localStorage due to size limits
+        // Don't save weights.bin to localStorage due to size limits - user must upload each time
         console.log('Model JSON and metadata saved to localStorage');
     } catch (error) {
         console.warn('Could not save model files to localStorage:', error);
@@ -80,10 +80,20 @@ function loadLocalModelFiles() {
             document.getElementById('metadata-json').nextElementSibling.classList.add('file-loaded');
             document.getElementById('metadata-json').nextElementSibling.textContent = '✓ metadata.json (saved)';
         }
-        // Don't load weights.bin from localStorage - will be uploaded fresh each time
+        // User must upload weights.bin fresh each time due to localStorage size limits
     } catch (error) {
         console.error('Error loading saved model files:', error);
     }
+}
+
+function savePoseSelection() {
+    const settings = loadSettings();
+    settings.activePoses = [];
+    for (let i = 0; i < 7; i++) {
+        const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
+        settings.activePoses[i] = checkbox ? checkbox.checked : false;
+    }
+    saveSettings(settings);
 }
 
 function getActivePoses() {
@@ -131,6 +141,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('input[name="model-source"]').forEach(radio => {
         radio.addEventListener('change', toggleModelSource);
     });
+
+    // Add pose checkbox listeners to save selection
+    for (let i = 1; i <= 7; i++) {
+        const checkbox = document.getElementById(`pose-${i}-enabled`);
+        if (checkbox) {
+            checkbox.addEventListener('change', savePoseSelection);
+        }
+    }
 
     // Add local file handlers
     document.getElementById('model-json').addEventListener('change', (e) => handleLocalFile(e, 'modelJson'));
@@ -219,7 +237,7 @@ function handleLocalFile(event, fileType) {
             
             console.log(`Loaded ${fileType}:`, file.name);
             
-            // Save to localStorage (but not weights.bin due to size)
+            // Save to localStorage (but not weights.bin due to size limits)
             if (fileType !== 'weightsBin') {
                 saveLocalModelFiles();
             }
@@ -307,7 +325,7 @@ async function startRecognition() {
         }
     } else {
         if (!validateLocalFiles()) {
-            alert('Please upload all required model files: model.json, metadata.json, and weights.bin. Make sure the files are valid Teachable Machine pose model files.');
+            alert('Please upload all required model files: model.json, metadata.json, and weights.bin. Note: You need to upload weights.bin each time due to browser storage limits.');
             return;
         }
     }
