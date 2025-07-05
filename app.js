@@ -96,6 +96,33 @@ function savePoseSelection() {
     saveSettings(settings);
 }
 
+function saveAllData() {
+    // Save current settings
+    const settings = {
+        modelUrl: document.getElementById('model-url').value,
+        modelSource: document.querySelector('input[name="model-source"]:checked').value,
+        audioEnabled: document.getElementById('audio-enabled').checked,
+        recognitionDelay: parseInt(document.getElementById('recognition-delay').value),
+        accuracyThreshold: parseFloat(document.getElementById('accuracy-threshold').value),
+        activePoses: []
+    };
+
+    // Save active poses state
+    for (let i = 0; i < 7; i++) {
+        const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
+        settings.activePoses[i] = checkbox ? checkbox.checked : false;
+    }
+
+    saveSettings(settings);
+
+    // Save local model files (except weights.bin due to size limits)
+    saveLocalModelFiles();
+
+    // Save pose images are already saved automatically when uploaded
+
+    alert('Settings and model data saved successfully!\n\nNote: You will need to re-upload weights.bin file each time due to browser storage limits.');
+}
+
 function getActivePoses() {
     activePoses = [];
     for (let i = 0; i < 7; i++) {
@@ -255,13 +282,13 @@ function validateLocalFiles() {
     const errors = [];
     
     if (!localModelFiles.modelJson) {
-        errors.push('model.json file is missing');
+        errors.push('model.json file is missing - please upload');
     }
     if (!localModelFiles.metadataJson) {
-        errors.push('metadata.json file is missing');
+        errors.push('metadata.json file is missing - please upload');
     }
     if (!localModelFiles.weightsBin) {
-        errors.push('weights.bin file is missing');
+        errors.push('weights.bin file is missing - please upload (required each time)');
     }
     
     if (errors.length > 0) {
@@ -272,10 +299,10 @@ function validateLocalFiles() {
     // Additional validation for file structure
     try {
         if (localModelFiles.modelJson && !localModelFiles.modelJson.weightsManifest) {
-            errors.push('model.json does not contain weightsManifest');
+            errors.push('model.json does not contain weightsManifest - invalid file format');
         }
         if (localModelFiles.metadataJson && !localModelFiles.metadataJson.labels) {
-            errors.push('metadata.json does not contain labels');
+            errors.push('metadata.json does not contain labels - invalid file format');
         }
     } catch (e) {
         errors.push('Invalid JSON structure in model files');
@@ -287,6 +314,34 @@ function validateLocalFiles() {
     }
     
     return true;
+}
+
+function resetRecognitionState() {
+    isRecognitionRunning = false;
+    sequenceIndex = 0;
+    lastPoseTime = 0;
+    isTransitioning = false;
+    confidenceScore = 0;
+    
+    // Reset UI elements
+    document.getElementById('start-recognition-button').style.display = 'inline-block';
+    document.getElementById('stop-recognition-button').style.display = 'none';
+    document.getElementById('timer-display').style.display = 'none';
+    
+    // Reset confidence display
+    const confidenceBar = document.querySelector('.confidence-bar');
+    const confidenceText = document.querySelector('.confidence-text');
+    if (confidenceBar && confidenceText) {
+        confidenceBar.style.width = '0%';
+        confidenceBar.classList.remove('correct');
+        confidenceText.textContent = 'Confidence: 0%';
+    }
+    
+    // Reset pose compare image
+    const poseCompare = document.getElementById('pose-compare');
+    if (poseCompare) {
+        poseCompare.className = 'pose-compare waiting';
+    }
 }
 
 async function startRecognition() {
@@ -490,92 +545,72 @@ async function setupCamera() {
 }
 
 function showSettingsPage() {
+    // Stop any ongoing recognition
+    stopCameraRecognition();
+    
+    // Switch pages
     document.getElementById('recognition-page').classList.remove('active');
     document.getElementById('settings-page').classList.add('active');
-    if (webcam) {
-        webcam.stop();
-        isRecognitionRunning = false;
-    }
-    // Reset button states
-    document.getElementById('start-recognition-button').style.display = 'inline-block';
-    document.getElementById('stop-recognition-button').style.display = 'none';
+    
+    console.log('Returned to settings page');
 }
 
 async function startCameraRecognition() {
-    if (!isRecognitionRunning && model) {
-        try {
-            console.log('Starting camera recognition...');
-            
-            // Get active poses and ensure we have at least one
-            getActivePoses();
-            if (poseSequence.length === 0) {
-                alert('Please select at least one pose to practice.');
-                return;
-            }
-            
-            isRecognitionRunning = true;
-            
-            // Reset pose sequence
-            sequenceIndex = 0;
-            lastPoseTime = 0;
-            isTransitioning = false;
-            
-            document.getElementById('start-recognition-button').style.display = 'none';
-            document.getElementById('stop-recognition-button').style.display = 'inline-block';
-
-            await webcam.play();
-            updateCurrentPose();
-            requestAnimationFrame(loop);
-
-        } catch (error) {
-            console.error('Error starting camera recognition:', error);
-            alert('Failed to start camera. Please ensure camera permissions are granted.');
-            isRecognitionRunning = false;
-            document.getElementById('start-recognition-button').style.display = 'inline-block';
-            document.getElementById('stop-recognition-button').style.display = 'none';
-        }
-    }
-}
-
-function stopCameraRecognition() {
-    if (isRecognitionRunning) {
-        isRecognitionRunning = false;
-        if (webcam) {
-            webcam.stop();
+    try {
+        console.log('Starting camera recognition...');
+        
+        // Get active poses and ensure we have at least one
+        getActivePoses();
+        if (poseSequence.length === 0) {
+            alert('Please select at least one pose to practice.');
+            return;
         }
         
         // Reset state
+        isRecognitionRunning = true;
         sequenceIndex = 0;
         lastPoseTime = 0;
         isTransitioning = false;
         confidenceScore = 0;
         
+        document.getElementById('start-recognition-button').style.display = 'none';
+        document.getElementById('stop-recognition-button').style.display = 'inline-block';
+
+        // Ensure webcam is properly initialized
+        if (!webcam || !model) {
+            throw new Error('Webcam or model not initialized');
+        }
+
+        await webcam.play();
+        updateCurrentPose();
+        requestAnimationFrame(loop);
+
+    } catch (error) {
+        console.error('Error starting camera recognition:', error);
+        alert('Failed to start camera. Please ensure camera permissions are granted.');
+        isRecognitionRunning = false;
         document.getElementById('start-recognition-button').style.display = 'inline-block';
         document.getElementById('stop-recognition-button').style.display = 'none';
-
-        // Clear canvas
-        if (ctx) {
-            ctx.clearRect(0, 0, 640, 480);
-        }
-
-        // Hide timer and reset confidence
-        document.getElementById('timer-display').style.display = 'none';
-        
-        // Reset confidence display
-        const confidenceBar = document.querySelector('.confidence-bar');
-        const confidenceText = document.querySelector('.confidence-text');
-        if (confidenceBar && confidenceText) {
-            confidenceBar.style.width = '0%';
-            confidenceBar.classList.remove('correct');
-            confidenceText.textContent = 'Confidence: 0%';
-        }
-        
-        // Reset pose compare image
-        const poseCompare = document.getElementById('pose-compare');
-        if (poseCompare) {
-            poseCompare.className = 'pose-compare waiting';
-        }
     }
+}
+
+function stopCameraRecognition() {
+    console.log('Stopping camera recognition...');
+    
+    // Stop webcam properly
+    if (webcam) {
+        webcam.stop();
+    }
+    
+    // Clear canvas
+    if (ctx) {
+        ctx.clearRect(0, 0, 640, 480);
+    }
+    
+    // Reset all state
+    resetRecognitionState();
+    
+    console.log('Camera recognition stopped');
 }
 
 function updateCurrentPose() {
