@@ -50,7 +50,68 @@ function saveSettings(settings) {
     localStorage.setItem('yogaAppSettings', JSON.stringify(settings));
 }
 
-function saveLocalModelFiles() {
+// IndexedDB functions for storing large weights.bin file
+function openWeightsDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('YogaModelWeights', 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('weights')) {
+                db.createObjectStore('weights');
+            }
+        };
+    });
+}
+
+async function saveWeightsToDB(weightsData) {
+    try {
+        const db = await openWeightsDB();
+        const transaction = db.transaction(['weights'], 'readwrite');
+        const store = transaction.objectStore('weights');
+        
+        await new Promise((resolve, reject) => {
+            const request = store.put(weightsData, 'weights.bin');
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve();
+        });
+        
+        console.log('Weights.bin saved to IndexedDB successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to save weights to IndexedDB:', error);
+        return false;
+    }
+}
+
+async function loadWeightsFromDB() {
+    try {
+        const db = await openWeightsDB();
+        const transaction = db.transaction(['weights'], 'readonly');
+        const store = transaction.objectStore('weights');
+        
+        return new Promise((resolve, reject) => {
+            const request = store.get('weights.bin');
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                if (request.result) {
+                    console.log('Weights.bin loaded from IndexedDB');
+                    resolve(request.result);
+                } else {
+                    resolve(null);
+                }
+            };
+        });
+    } catch (error) {
+        console.error('Failed to load weights from IndexedDB:', error);
+        return null;
+    }
+}
+
+async function saveLocalModelFiles() {
     try {
         if (localModelFiles.modelJson) {
             localStorage.setItem('localModelJson', JSON.stringify(localModelFiles.modelJson));
@@ -58,14 +119,24 @@ function saveLocalModelFiles() {
         if (localModelFiles.metadataJson) {
             localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
         }
-        // Don't save weights.bin to localStorage due to size limits - user must upload each time
-        console.log('Model JSON and metadata saved to localStorage');
+        
+        // Save weights.bin to IndexedDB for large file storage
+        if (localModelFiles.weightsBin) {
+            const saved = await saveWeightsToDB(localModelFiles.weightsBin);
+            if (saved) {
+                console.log('Model JSON, metadata saved to localStorage, weights saved to IndexedDB');
+            } else {
+                console.log('Model JSON and metadata saved to localStorage, but weights failed to save');
+            }
+        } else {
+            console.log('Model JSON and metadata saved to localStorage');
+        }
     } catch (error) {
-        console.warn('Could not save model files to localStorage:', error);
+        console.warn('Could not save model files:', error);
     }
 }
 
-function loadLocalModelFiles() {
+async function loadLocalModelFiles() {
     try {
         const modelJson = localStorage.getItem('localModelJson');
         const metadataJson = localStorage.getItem('localMetadataJson');
@@ -80,7 +151,14 @@ function loadLocalModelFiles() {
             document.getElementById('metadata-json').nextElementSibling.classList.add('file-loaded');
             document.getElementById('metadata-json').nextElementSibling.textContent = '✓ metadata.json (saved)';
         }
-        // User must upload weights.bin fresh each time due to localStorage size limits
+        
+        // Load weights.bin from IndexedDB
+        const weightsData = await loadWeightsFromDB();
+        if (weightsData) {
+            localModelFiles.weightsBin = weightsData;
+            document.getElementById('weights-bin').nextElementSibling.classList.add('file-loaded');
+            document.getElementById('weights-bin').nextElementSibling.textContent = '✓ weights.bin (saved)';
+        }
     } catch (error) {
         console.error('Error loading saved model files:', error);
     }
@@ -120,7 +198,7 @@ function saveAllData() {
 
     // Save pose images are already saved automatically when uploaded
 
-    alert('Settings and model data saved successfully!\n\nNote: You will need to re-upload weights.bin file each time due to browser storage limits.');
+    alert('Settings and model data saved successfully!\n\nAll files including weights.bin are now saved locally and will persist between sessions.');
 }
 
 function getActivePoses() {
@@ -245,9 +323,15 @@ function handleLocalFile(event, fileType) {
     const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             if (fileType === 'weightsBin') {
                 localModelFiles[fileType] = e.target.result;
+                
+                // Automatically save weights.bin to IndexedDB
+                const saved = await saveWeightsToDB(e.target.result);
+                if (!saved) {
+                    console.warn('Failed to save weights.bin to IndexedDB');
+                }
             } else {
                 try {
                     localModelFiles[fileType] = JSON.parse(e.target.result);
@@ -264,8 +348,10 @@ function handleLocalFile(event, fileType) {
             
             console.log(`Loaded ${fileType}:`, file.name);
             
-            // Save to localStorage (but not weights.bin due to size limits)
-            if (fileType !== 'weightsBin') {
+            // Save to appropriate storage
+            if (fileType === 'weightsBin') {
+                // Already saved to IndexedDB above
+            } else {
                 saveLocalModelFiles();
             }
         };
