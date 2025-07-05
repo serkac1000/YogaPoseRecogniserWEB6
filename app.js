@@ -324,11 +324,38 @@ function resetRecognitionState() {
     confidenceScore = 0;
     
     // Reset UI elements
-    document.getElementById('start-recognition-button').style.display = 'inline-block';
-    document.getElementById('stop-recognition-button').style.display = 'none';
     document.getElementById('timer-display').style.display = 'none';
     
     // Reset confidence display
+    const confidenceBar = document.querySelector('.confidence-bar');
+    const confidenceText = document.querySelector('.confidence-text');
+    if (confidenceBar && confidenceText) {
+        confidenceBar.style.width = '0%';
+        confidenceBar.classList.remove('correct');
+        confidenceText.textContent = 'Confidence: 0%';
+    }
+    
+    // Reset pose compare image
+    const poseCompare = document.getElementById('pose-compare');
+    if (poseCompare) {
+        poseCompare.className = 'pose-compare waiting';
+    }
+}
+
+function refreshRecognition() {
+    console.log('Refreshing recognition - restarting from pose 1');
+    
+    // Reset to first pose
+    sequenceIndex = 0;
+    lastPoseTime = 0;
+    isTransitioning = false;
+    confidenceScore = 0;
+    
+    // Update current pose display
+    updateCurrentPose();
+    
+    // Reset timer and confidence displays
+    document.getElementById('timer-display').style.display = 'none';
     const confidenceBar = document.querySelector('.confidence-bar');
     const confidenceText = document.querySelector('.confidence-text');
     if (confidenceBar && confidenceText) {
@@ -572,9 +599,6 @@ async function startCameraRecognition() {
         lastPoseTime = 0;
         isTransitioning = false;
         confidenceScore = 0;
-        
-        document.getElementById('start-recognition-button').style.display = 'none';
-        document.getElementById('stop-recognition-button').style.display = 'inline-block';
 
         // Ensure webcam is properly initialized
         if (!webcam || !model) {
@@ -589,8 +613,6 @@ async function startCameraRecognition() {
         console.error('Error starting camera recognition:', error);
         alert('Failed to start camera. Please ensure camera permissions are granted.');
         isRecognitionRunning = false;
-        document.getElementById('start-recognition-button').style.display = 'inline-block';
-        document.getElementById('stop-recognition-button').style.display = 'none';
     }
 }
 
