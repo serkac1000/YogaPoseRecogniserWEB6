@@ -162,9 +162,41 @@ function handleLocalFile(event, fileType) {
 }
 
 function validateLocalFiles() {
-    return localModelFiles.modelJson && 
-           localModelFiles.metadataJson && 
-           localModelFiles.weightsBin;
+    const errors = [];
+    
+    if (!localModelFiles.modelJson) {
+        errors.push('model.json file is missing');
+    }
+    if (!localModelFiles.metadataJson) {
+        errors.push('metadata.json file is missing');
+    }
+    if (!localModelFiles.weightsBin) {
+        errors.push('weights.bin file is missing');
+    }
+    
+    if (errors.length > 0) {
+        console.error('Local model validation failed:', errors.join(', '));
+        return false;
+    }
+    
+    // Additional validation for file structure
+    try {
+        if (localModelFiles.modelJson && !localModelFiles.modelJson.weightsManifest) {
+            errors.push('model.json does not contain weightsManifest');
+        }
+        if (localModelFiles.metadataJson && !localModelFiles.metadataJson.labels) {
+            errors.push('metadata.json does not contain labels');
+        }
+    } catch (e) {
+        errors.push('Invalid JSON structure in model files');
+    }
+    
+    if (errors.length > 0) {
+        console.error('Local model structure validation failed:', errors.join(', '));
+        return false;
+    }
+    
+    return true;
 }
 
 async function startRecognition() {
@@ -188,7 +220,7 @@ async function startRecognition() {
         }
     } else {
         if (!validateLocalFiles()) {
-            alert('Please upload all required model files: model.json, metadata.json, and weights.bin');
+            alert('Please upload all required model files: model.json, metadata.json, and weights.bin. Make sure the files are valid Teachable Machine pose model files.');
             return;
         }
     }
@@ -206,7 +238,15 @@ async function startRecognition() {
         await startCameraRecognition();
     } catch (error) {
         console.error('Failed to start recognition:', error);
-        alert('Failed to start recognition. Please check your model files/URL and try again.');
+        let errorMessage = 'Failed to start recognition. ';
+        
+        if (modelSource === 'local') {
+            errorMessage += 'Please ensure your model files are valid Teachable Machine pose model files (model.json, metadata.json, weights.bin) and try again.';
+        } else {
+            errorMessage += 'Please check your model URL and internet connection, then try again.';
+        }
+        
+        alert(errorMessage);
         showSettingsPage();
     }
 }
@@ -235,18 +275,32 @@ async function initLocal() {
         // Create blob URLs for local files
         const modelBlob = new Blob([JSON.stringify(localModelFiles.modelJson)], {type: 'application/json'});
         const metadataBlob = new Blob([JSON.stringify(localModelFiles.metadataJson)], {type: 'application/json'});
+        const weightsBlob = new Blob([localModelFiles.weightsBin], {type: 'application/octet-stream'});
         
         const modelUrl = URL.createObjectURL(modelBlob);
         const metadataUrl = URL.createObjectURL(metadataBlob);
+        const weightsUrl = URL.createObjectURL(weightsBlob);
+
+        // Modify the model.json to point to our local weights URL
+        const modifiedModelJson = {...localModelFiles.modelJson};
+        if (modifiedModelJson.weightsManifest && modifiedModelJson.weightsManifest[0]) {
+            modifiedModelJson.weightsManifest[0].paths = [weightsUrl];
+        }
+
+        // Create new blob with modified model.json
+        const modifiedModelBlob = new Blob([JSON.stringify(modifiedModelJson)], {type: 'application/json'});
+        const modifiedModelUrl = URL.createObjectURL(modifiedModelBlob);
 
         // Load the model with local files
-        model = await tmPose.load(modelUrl, metadataUrl);
+        model = await tmPose.load(modifiedModelUrl, metadataUrl);
         maxPredictions = model.getTotalClasses();
         console.log('Local model loaded successfully. Classes:', maxPredictions);
 
         // Clean up blob URLs
         URL.revokeObjectURL(modelUrl);
+        URL.revokeObjectURL(modifiedModelUrl);
         URL.revokeObjectURL(metadataUrl);
+        URL.revokeObjectURL(weightsUrl);
 
         await setupCamera();
 
