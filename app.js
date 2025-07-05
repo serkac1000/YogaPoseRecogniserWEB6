@@ -257,11 +257,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // Load custom pose names
-    if (settings.poseNames) {
+    if (settings.poseNames && settings.poseNames.length > 0) {
         for (let i = 0; i < 7; i++) {
             const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
-            if (label) {
+            if (label && settings.poseNames[i]) {
                 label.textContent = settings.poseNames[i];
+            }
+        }
+    } else {
+        // Initialize with default pose names if none saved
+        for (let i = 0; i < 7; i++) {
+            const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
+            if (label && poses[i]) {
+                label.textContent = poses[i].name;
             }
         }
     }
@@ -326,6 +334,13 @@ function handleImageUpload(event, poseIndex) {
         };
         reader.readAsDataURL(file);
     }
+}
+
+function updatePoseName(labelElement, poseIndex) {
+    const settings = loadSettings();
+    settings.poseNames[poseIndex - 1] = labelElement.textContent;
+    saveSettings(settings);
+    console.log(`Updated pose ${poseIndex} name to: ${labelElement.textContent}`);
 }
 
 function updateAccuracyDisplay() {
