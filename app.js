@@ -22,7 +22,7 @@ const poses = [
 ];
 
 // Pose cycle for alternating between poses
-let poseSequence = [0, 1]; // Mountain Pose and Tree Pose
+let poseSequence = []; // Will be populated with active poses
 let sequenceIndex = 0;
 
 // Model file storage
@@ -59,7 +59,7 @@ function saveLocalModelFiles() {
             localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
         }
         // Don't save weights.bin to localStorage due to size limits
-        // It will be loaded fresh each time from file upload
+        console.log('Model JSON and metadata saved to localStorage');
     } catch (error) {
         console.warn('Could not save model files to localStorage:', error);
     }
@@ -94,6 +94,8 @@ function getActivePoses() {
             activePoses.push(i);
         }
     }
+    // Update pose sequence with active poses
+    poseSequence = [...activePoses];
     return activePoses;
 }
 
@@ -217,8 +219,10 @@ function handleLocalFile(event, fileType) {
             
             console.log(`Loaded ${fileType}:`, file.name);
             
-            // Save to localStorage
-            saveLocalModelFiles();
+            // Save to localStorage (but not weights.bin due to size)
+            if (fileType !== 'weightsBin') {
+                saveLocalModelFiles();
+            }
         };
         
         if (fileType === 'weightsBin') {
@@ -483,6 +487,14 @@ async function startCameraRecognition() {
     if (!isRecognitionRunning && model) {
         try {
             console.log('Starting camera recognition...');
+            
+            // Get active poses and ensure we have at least one
+            getActivePoses();
+            if (poseSequence.length === 0) {
+                alert('Please select at least one pose to practice.');
+                return;
+            }
+            
             isRecognitionRunning = true;
             
             // Reset pose sequence
@@ -549,9 +561,13 @@ function stopCameraRecognition() {
 }
 
 function updateCurrentPose() {
+    if (poseSequence.length === 0) return;
+    
     const currentPoseIndex = poseSequence[sequenceIndex];
     const pose = poses[currentPoseIndex];
-    document.getElementById('pose-name').textContent = `Current Pose: ${pose.name}`;
+    // Clean the pose name by removing the line break and Sanskrit name
+    const cleanName = pose.name.split('\n')[0];
+    document.getElementById('pose-name').textContent = `Current Pose: ${cleanName}`;
 
     const poseCompare = document.getElementById('pose-compare');
     const savedImage = poseImages.get(currentPoseIndex);
@@ -596,6 +612,7 @@ async function predict() {
         }
 
         // Get current pose in sequence
+        if (poseSequence.length === 0) return;
         const currentPoseIndex = poseSequence[sequenceIndex];
 
         // Get current pose prediction
@@ -689,15 +706,16 @@ function moveToNextPose() {
         timerDisplay.style.display = 'none';
     }
 
-    // Move to next pose in sequence (alternating between pose 1 and pose 2)
+    // Get the completed pose name before moving to next
+    const completedPoseIndex = poseSequence[sequenceIndex];
+    const completedPoseName = poses[completedPoseIndex].name.split('\n')[0];
+
+    // Move to next pose in sequence
     sequenceIndex = (sequenceIndex + 1) % poseSequence.length;
     updateCurrentPose();
 
-    // Show congratulations message
-    const currentPoseName = poses[poseSequence[sequenceIndex === 0 ? poseSequence.length - 1 : sequenceIndex - 1]].name;
-    setTimeout(() => {
-        alert(`Great! You completed ${currentPoseName}. Now try the next pose!`);
-    }, 500);
+    // Show congratulations message without popup
+    console.log(`Great! You completed ${completedPoseName}. Now try the next pose!`);
 }
 
 function playSuccessSound() {
