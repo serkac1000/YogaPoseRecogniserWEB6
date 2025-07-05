@@ -21,6 +21,10 @@ const poses = [
     { name: "Downward Dog\n(Adho Mukha Svanasana)", image: "downward.jpg" }
 ];
 
+// Pose cycle for alternating between poses
+let poseSequence = [0, 1]; // Mountain Pose and Tree Pose
+let sequenceIndex = 0;
+
 // Model file storage
 let localModelFiles = {
     modelJson: null,
@@ -47,18 +51,17 @@ function saveSettings(settings) {
 }
 
 function saveLocalModelFiles() {
-    if (localModelFiles.modelJson) {
-        localStorage.setItem('localModelJson', JSON.stringify(localModelFiles.modelJson));
-    }
-    if (localModelFiles.metadataJson) {
-        localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
-    }
-    if (localModelFiles.weightsBin) {
-        // Convert ArrayBuffer to base64 for storage
-        const uint8Array = new Uint8Array(localModelFiles.weightsBin);
-        const binaryString = Array.from(uint8Array).map(byte => String.fromCharCode(byte)).join('');
-        const base64 = btoa(binaryString);
-        localStorage.setItem('localWeightsBin', base64);
+    try {
+        if (localModelFiles.modelJson) {
+            localStorage.setItem('localModelJson', JSON.stringify(localModelFiles.modelJson));
+        }
+        if (localModelFiles.metadataJson) {
+            localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
+        }
+        // Don't save weights.bin to localStorage due to size limits
+        // It will be loaded fresh each time from file upload
+    } catch (error) {
+        console.warn('Could not save model files to localStorage:', error);
     }
 }
 
@@ -66,7 +69,6 @@ function loadLocalModelFiles() {
     try {
         const modelJson = localStorage.getItem('localModelJson');
         const metadataJson = localStorage.getItem('localMetadataJson');
-        const weightsBin = localStorage.getItem('localWeightsBin');
 
         if (modelJson) {
             localModelFiles.modelJson = JSON.parse(modelJson);
@@ -78,17 +80,7 @@ function loadLocalModelFiles() {
             document.getElementById('metadata-json').nextElementSibling.classList.add('file-loaded');
             document.getElementById('metadata-json').nextElementSibling.textContent = '✓ metadata.json (saved)';
         }
-        if (weightsBin) {
-            // Convert base64 back to ArrayBuffer
-            const binaryString = atob(weightsBin);
-            const uint8Array = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                uint8Array[i] = binaryString.charCodeAt(i);
-            }
-            localModelFiles.weightsBin = uint8Array.buffer;
-            document.getElementById('weights-bin').nextElementSibling.classList.add('file-loaded');
-            document.getElementById('weights-bin').nextElementSibling.textContent = '✓ weights.bin (saved)';
-        }
+        // Don't load weights.bin from localStorage - will be uploaded fresh each time
     } catch (error) {
         console.error('Error loading saved model files:', error);
     }
@@ -493,9 +485,8 @@ async function startCameraRecognition() {
             console.log('Starting camera recognition...');
             isRecognitionRunning = true;
             
-            // Get active poses and set current index to first active pose
-            getActivePoses();
-            currentPoseIndex = 0;
+            // Reset pose sequence
+            sequenceIndex = 0;
             lastPoseTime = 0;
             isTransitioning = false;
             
@@ -522,6 +513,13 @@ function stopCameraRecognition() {
         if (webcam) {
             webcam.stop();
         }
+        
+        // Reset state
+        sequenceIndex = 0;
+        lastPoseTime = 0;
+        isTransitioning = false;
+        confidenceScore = 0;
+        
         document.getElementById('start-recognition-button').style.display = 'inline-block';
         document.getElementById('stop-recognition-button').style.display = 'none';
 
@@ -530,20 +528,33 @@ function stopCameraRecognition() {
             ctx.clearRect(0, 0, 640, 480);
         }
 
-        // Hide timer
+        // Hide timer and reset confidence
         document.getElementById('timer-display').style.display = 'none';
+        
+        // Reset confidence display
+        const confidenceBar = document.querySelector('.confidence-bar');
+        const confidenceText = document.querySelector('.confidence-text');
+        if (confidenceBar && confidenceText) {
+            confidenceBar.style.width = '0%';
+            confidenceBar.classList.remove('correct');
+            confidenceText.textContent = 'Confidence: 0%';
+        }
+        
+        // Reset pose compare image
+        const poseCompare = document.getElementById('pose-compare');
+        if (poseCompare) {
+            poseCompare.className = 'pose-compare waiting';
+        }
     }
 }
 
 function updateCurrentPose() {
-    if (activePoses.length === 0) return;
-    
-    const actualPoseIndex = activePoses[currentPoseIndex];
-    const pose = poses[actualPoseIndex];
-    document.getElementById('pose-name').textContent = pose.name;
+    const currentPoseIndex = poseSequence[sequenceIndex];
+    const pose = poses[currentPoseIndex];
+    document.getElementById('pose-name').textContent = `Current Pose: ${pose.name}`;
 
     const poseCompare = document.getElementById('pose-compare');
-    const savedImage = poseImages.get(actualPoseIndex);
+    const savedImage = poseImages.get(currentPoseIndex);
 
     if (savedImage) {
         poseCompare.src = savedImage;
@@ -584,13 +595,12 @@ async function predict() {
             drawPose(pose);
         }
 
-        // Get current active pose index
-        if (activePoses.length === 0) return;
-        const actualPoseIndex = activePoses[currentPoseIndex];
+        // Get current pose in sequence
+        const currentPoseIndex = poseSequence[sequenceIndex];
 
         // Get current pose prediction
-        if (prediction && prediction.length > actualPoseIndex) {
-            confidenceScore = prediction[actualPoseIndex].probability;
+        if (prediction && prediction.length > currentPoseIndex) {
+            confidenceScore = prediction[currentPoseIndex].probability;
             updateConfidenceDisplay();
 
             const settings = loadSettings();
@@ -679,15 +689,15 @@ function moveToNextPose() {
         timerDisplay.style.display = 'none';
     }
 
-    currentPoseIndex = (currentPoseIndex + 1) % activePoses.length;
+    // Move to next pose in sequence (alternating between pose 1 and pose 2)
+    sequenceIndex = (sequenceIndex + 1) % poseSequence.length;
     updateCurrentPose();
 
-    if (currentPoseIndex === 0) {
-        // Completed all poses
-        setTimeout(() => {
-            alert('Congratulations! You completed all yoga poses!');
-        }, 500);
-    }
+    // Show congratulations message
+    const currentPoseName = poses[poseSequence[sequenceIndex === 0 ? poseSequence.length - 1 : sequenceIndex - 1]].name;
+    setTimeout(() => {
+        alert(`Great! You completed ${currentPoseName}. Now try the next pose!`);
+    }, 500);
 }
 
 function playSuccessSound() {
