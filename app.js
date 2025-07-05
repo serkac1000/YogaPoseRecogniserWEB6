@@ -272,40 +272,85 @@ async function initLocal() {
     console.log('Loading local model files...');
 
     try {
-        // Create blob URLs for local files
-        const modelBlob = new Blob([JSON.stringify(localModelFiles.modelJson)], {type: 'application/json'});
-        const metadataBlob = new Blob([JSON.stringify(localModelFiles.metadataJson)], {type: 'application/json'});
-        const weightsBlob = new Blob([localModelFiles.weightsBin], {type: 'application/octet-stream'});
-        
-        const modelUrl = URL.createObjectURL(modelBlob);
-        const metadataUrl = URL.createObjectURL(metadataBlob);
-        const weightsUrl = URL.createObjectURL(weightsBlob);
-
-        // Modify the model.json to point to our local weights URL
-        const modifiedModelJson = {...localModelFiles.modelJson};
-        if (modifiedModelJson.weightsManifest && modifiedModelJson.weightsManifest[0]) {
-            modifiedModelJson.weightsManifest[0].paths = [weightsUrl];
+        // Validate files are loaded
+        if (!localModelFiles.modelJson || !localModelFiles.metadataJson || !localModelFiles.weightsBin) {
+            throw new Error('Missing required model files');
         }
 
-        // Create new blob with modified model.json
-        const modifiedModelBlob = new Blob([JSON.stringify(modifiedModelJson)], {type: 'application/json'});
-        const modifiedModelUrl = URL.createObjectURL(modifiedModelBlob);
+        console.log('Creating model blob URLs...');
+        
+        // Create metadata blob first
+        const metadataBlob = new Blob([JSON.stringify(localModelFiles.metadataJson)], {type: 'application/json'});
+        const metadataUrl = URL.createObjectURL(metadataBlob);
+        console.log('Metadata URL created:', metadataUrl);
 
-        // Load the model with local files
-        model = await tmPose.load(modifiedModelUrl, metadataUrl);
-        maxPredictions = model.getTotalClasses();
-        console.log('Local model loaded successfully. Classes:', maxPredictions);
+        // Create weights blob with proper binary data
+        let weightsData;
+        if (localModelFiles.weightsBin instanceof ArrayBuffer) {
+            weightsData = localModelFiles.weightsBin;
+        } else {
+            throw new Error('Weights data is not in the correct format (should be ArrayBuffer)');
+        }
+        
+        const weightsBlob = new Blob([weightsData], {type: 'application/octet-stream'});
+        const weightsUrl = URL.createObjectURL(weightsBlob);
+        console.log('Weights URL created:', weightsUrl);
 
-        // Clean up blob URLs
-        URL.revokeObjectURL(modelUrl);
-        URL.revokeObjectURL(modifiedModelUrl);
-        URL.revokeObjectURL(metadataUrl);
-        URL.revokeObjectURL(weightsUrl);
+        // Create a modified model.json that points to our blob URL for weights
+        const modifiedModelJson = JSON.parse(JSON.stringify(localModelFiles.modelJson));
+        
+        // Update the weights manifest to point to our blob URL
+        if (modifiedModelJson.weightsManifest && modifiedModelJson.weightsManifest.length > 0) {
+            // Replace the weights path with our blob URL
+            modifiedModelJson.weightsManifest[0].paths = ['./weights.bin'];
+            console.log('Updated weightsManifest paths');
+        } else {
+            throw new Error('Model file does not contain valid weightsManifest');
+        }
+
+        // Create model blob
+        const modelBlob = new Blob([JSON.stringify(modifiedModelJson)], {type: 'application/json'});
+        const modelUrl = URL.createObjectURL(modelBlob);
+        console.log('Model URL created:', modelUrl);
+
+        // Create a custom fetch function that intercepts requests for weights.bin
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.includes('weights.bin')) {
+                console.log('Intercepting weights.bin request, returning local blob');
+                return Promise.resolve(new Response(weightsBlob));
+            }
+            return originalFetch.call(this, url, options);
+        };
+
+        try {
+            // Load the model with local files
+            console.log('Loading model with URLs:', { modelUrl, metadataUrl });
+            model = await tmPose.load(modelUrl, metadataUrl);
+            maxPredictions = model.getTotalClasses();
+            console.log('Local model loaded successfully. Classes:', maxPredictions);
+        } finally {
+            // Restore original fetch
+            window.fetch = originalFetch;
+            
+            // Clean up blob URLs
+            URL.revokeObjectURL(modelUrl);
+            URL.revokeObjectURL(metadataUrl);
+            URL.revokeObjectURL(weightsUrl);
+        }
 
         await setupCamera();
 
     } catch (error) {
         console.error('Failed to initialize local model:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            modelJsonLoaded: !!localModelFiles.modelJson,
+            metadataJsonLoaded: !!localModelFiles.metadataJson,
+            weightsBinLoaded: !!localModelFiles.weightsBin,
+            weightsBinType: localModelFiles.weightsBin ? localModelFiles.weightsBin.constructor.name : 'undefined'
+        });
         throw error;
     }
 }
