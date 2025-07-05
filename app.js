@@ -146,7 +146,7 @@ async function loadLocalModelFiles() {
             const modelLabel = document.getElementById('model-json')?.nextElementSibling;
             if (modelLabel) {
                 modelLabel.classList.add('file-loaded');
-                modelLabel.textContent = '✓ model.json (saved)';
+                modelLabel.textContent = 'model.json (saved)';
             }
         }
         if (metadataJson) {
@@ -154,7 +154,7 @@ async function loadLocalModelFiles() {
             const metadataLabel = document.getElementById('metadata-json')?.nextElementSibling;
             if (metadataLabel) {
                 metadataLabel.classList.add('file-loaded');
-                metadataLabel.textContent = '✓ metadata.json (saved)';
+                metadataLabel.textContent = 'metadata.json (saved)';
             }
         }
 
@@ -165,7 +165,7 @@ async function loadLocalModelFiles() {
             const weightsLabel = document.getElementById('weights-bin')?.nextElementSibling;
             if (weightsLabel) {
                 weightsLabel.classList.add('file-loaded');
-                weightsLabel.textContent = '✓ weights.bin (saved)';
+                weightsLabel.textContent = 'weights.bin (saved)';
             }
             console.log('All local model files loaded successfully from storage');
         }
@@ -373,7 +373,7 @@ function handleLocalFile(event, fileType) {
             // Update label to show file is loaded
             const label = event.target.nextElementSibling;
             label.classList.add('file-loaded');
-            label.textContent = `✓ ${file.name}`;
+            label.textContent = `${file.name}`;
 
             console.log(`Loaded ${fileType}:`, file.name);
 
