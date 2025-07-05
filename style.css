@@ -103,6 +103,20 @@ body {
     min-width: 150px;
     margin: 0;
     font-weight: normal;
+    cursor: text;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+}
+
+.pose-item label:focus {
+    outline: none;
+    border: 1px solid #007bff;
+    background-color: #f8f9fa;
+}
+
+.pose-item label:hover {
+    background-color: #f0f0f0;
 }
 
 .pose-item input[type="file"] {

@@ -1,4 +1,3 @@
-
 let model, webcam, ctx, labelContainer, maxPredictions;
 const poseImages = new Map();
 let currentPoseImage = null;
@@ -41,7 +40,8 @@ function loadSettings() {
         audioEnabled: true,
         recognitionDelay: 3,
         accuracyThreshold: 0.5,
-        activePoses: [true, true, true, true, true, true, true]
+        activePoses: [true, true, true, true, true, true, true],
+        poseNames: poses.map(pose => pose.name) // Initialize with default pose names
     };
     return { ...defaultSettings, ...settings };
 }
@@ -54,10 +54,10 @@ function saveSettings(settings) {
 function openWeightsDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('YogaModelWeights', 1);
-        
+
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
-        
+
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             if (!db.objectStoreNames.contains('weights')) {
@@ -72,13 +72,13 @@ async function saveWeightsToDB(weightsData) {
         const db = await openWeightsDB();
         const transaction = db.transaction(['weights'], 'readwrite');
         const store = transaction.objectStore('weights');
-        
+
         await new Promise((resolve, reject) => {
             const request = store.put(weightsData, 'weights.bin');
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve();
         });
-        
+
         console.log('Weights.bin saved to IndexedDB successfully');
         return true;
     } catch (error) {
@@ -92,7 +92,7 @@ async function loadWeightsFromDB() {
         const db = await openWeightsDB();
         const transaction = db.transaction(['weights'], 'readonly');
         const store = transaction.objectStore('weights');
-        
+
         return new Promise((resolve, reject) => {
             const request = store.get('weights.bin');
             request.onerror = () => reject(request.error);
@@ -119,7 +119,7 @@ async function saveLocalModelFiles() {
         if (localModelFiles.metadataJson) {
             localStorage.setItem('localMetadataJson', JSON.stringify(localModelFiles.metadataJson));
         }
-        
+
         // Save weights.bin to IndexedDB for large file storage
         if (localModelFiles.weightsBin) {
             const saved = await saveWeightsToDB(localModelFiles.weightsBin);
@@ -157,7 +157,7 @@ async function loadLocalModelFiles() {
                 metadataLabel.textContent = '✓ metadata.json (saved)';
             }
         }
-        
+
         // Load weights.bin from IndexedDB
         const weightsData = await loadWeightsFromDB();
         if (weightsData) {
@@ -192,13 +192,20 @@ function saveAllData() {
         audioEnabled: document.getElementById('audio-enabled').checked,
         recognitionDelay: parseInt(document.getElementById('recognition-delay').value),
         accuracyThreshold: parseFloat(document.getElementById('accuracy-threshold').value),
-        activePoses: []
+        activePoses: [],
+        poseNames: []
     };
 
-    // Save active poses state
+    // Save active poses state and custom names
     for (let i = 0; i < 7; i++) {
         const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
         settings.activePoses[i] = checkbox ? checkbox.checked : false;
+
+        // Save custom pose names from labels
+        const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
+        if (label) {
+            settings.poseNames[i] = label.textContent;
+        }
     }
 
     saveSettings(settings);
@@ -249,6 +256,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    // Load custom pose names
+    if (settings.poseNames) {
+        for (let i = 0; i < 7; i++) {
+            const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
+            if (label) {
+                label.textContent = settings.poseNames[i];
+            }
+        }
+    }
+
     // Update accuracy display
     document.getElementById('accuracy-value').textContent = settings.accuracyThreshold;
 
@@ -273,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Load pose images and local model files
     loadPoseImages();
     await loadLocalModelFiles();
-    
+
     console.log('App initialization complete. All saved settings and model files have been restored.');
 });
 
@@ -338,7 +355,7 @@ function handleLocalFile(event, fileType) {
         reader.onload = async function(e) {
             if (fileType === 'weightsBin') {
                 localModelFiles[fileType] = e.target.result;
-                
+
                 // Automatically save weights.bin to IndexedDB
                 const saved = await saveWeightsToDB(e.target.result);
                 if (!saved) {
@@ -352,14 +369,14 @@ function handleLocalFile(event, fileType) {
                     return;
                 }
             }
-            
+
             // Update label to show file is loaded
             const label = event.target.nextElementSibling;
             label.classList.add('file-loaded');
             label.textContent = `✓ ${file.name}`;
-            
+
             console.log(`Loaded ${fileType}:`, file.name);
-            
+
             // Save to appropriate storage
             if (fileType === 'weightsBin') {
                 // Already saved to IndexedDB above
@@ -367,7 +384,7 @@ function handleLocalFile(event, fileType) {
                 saveLocalModelFiles();
             }
         };
-        
+
         if (fileType === 'weightsBin') {
             reader.readAsArrayBuffer(file);
         } else {
@@ -378,7 +395,7 @@ function handleLocalFile(event, fileType) {
 
 async function validateLocalFiles() {
     const errors = [];
-    
+
     // Try to load weights from IndexedDB if not already loaded
     if (!localModelFiles.weightsBin) {
         const weightsData = await loadWeightsFromDB();
@@ -387,7 +404,7 @@ async function validateLocalFiles() {
             console.log('Loaded weights.bin from IndexedDB during validation');
         }
     }
-    
+
     if (!localModelFiles.modelJson) {
         errors.push('model.json file is missing - please upload');
     }
@@ -397,12 +414,12 @@ async function validateLocalFiles() {
     if (!localModelFiles.weightsBin) {
         errors.push('weights.bin file is missing - please upload');
     }
-    
+
     if (errors.length > 0) {
         console.error('Local model validation failed:', errors.join(', '));
         return false;
     }
-    
+
     // Additional validation for file structure
     try {
         if (localModelFiles.modelJson && !localModelFiles.modelJson.weightsManifest) {
@@ -414,12 +431,12 @@ async function validateLocalFiles() {
     } catch (e) {
         errors.push('Invalid JSON structure in model files');
     }
-    
+
     if (errors.length > 0) {
         console.error('Local model structure validation failed:', errors.join(', '));
         return false;
     }
-    
+
     return true;
 }
 
@@ -429,10 +446,10 @@ function resetRecognitionState() {
     lastPoseTime = 0;
     isTransitioning = false;
     confidenceScore = 0;
-    
+
     // Reset UI elements
     document.getElementById('timer-display').style.display = 'none';
-    
+
     // Reset confidence display
     const confidenceBar = document.querySelector('.confidence-bar');
     const confidenceText = document.querySelector('.confidence-text');
@@ -441,7 +458,7 @@ function resetRecognitionState() {
         confidenceBar.classList.remove('correct');
         confidenceText.textContent = 'Confidence: 0%';
     }
-    
+
     // Reset pose compare image
     const poseCompare = document.getElementById('pose-compare');
     if (poseCompare) {
@@ -451,16 +468,16 @@ function resetRecognitionState() {
 
 function refreshRecognition() {
     console.log('Refreshing recognition - restarting from pose 1');
-    
+
     // Reset to first pose
     sequenceIndex = 0;
     lastPoseTime = 0;
     isTransitioning = false;
     confidenceScore = 0;
-    
+
     // Update current pose display
     updateCurrentPose();
-    
+
     // Reset timer and confidence displays
     document.getElementById('timer-display').style.display = 'none';
     const confidenceBar = document.querySelector('.confidence-bar');
@@ -470,7 +487,7 @@ function refreshRecognition() {
         confidenceBar.classList.remove('correct');
         confidenceText.textContent = 'Confidence: 0%';
     }
-    
+
     // Reset pose compare image
     const poseCompare = document.getElementById('pose-compare');
     if (poseCompare) {
@@ -495,13 +512,20 @@ async function startRecognition() {
         audioEnabled: document.getElementById('audio-enabled').checked,
         recognitionDelay: parseInt(document.getElementById('recognition-delay').value),
         accuracyThreshold: parseFloat(document.getElementById('accuracy-threshold').value),
-        activePoses: []
+        activePoses: [],
+        poseNames: []
     };
 
-    // Save active poses state
+    // Save active poses state and custom names
     for (let i = 0; i < 7; i++) {
         const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
         settings.activePoses[i] = checkbox ? checkbox.checked : false;
+
+        // Save custom pose names from labels
+        const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
+        if (label) {
+            settings.poseNames[i] = label.textContent;
+        }
     }
 
     saveSettings(settings);
@@ -534,13 +558,13 @@ async function startRecognition() {
     } catch (error) {
         console.error('Failed to start recognition:', error);
         let errorMessage = 'Failed to start recognition. ';
-        
+
         if (modelSource === 'local') {
             errorMessage += 'Please ensure your model files are valid Teachable Machine pose model files (model.json, metadata.json, weights.bin) and try again.';
         } else {
             errorMessage += 'Please check your model URL and internet connection, then try again.';
         }
-        
+
         alert(errorMessage);
         showSettingsPage();
     }
@@ -573,7 +597,7 @@ async function initLocal() {
         }
 
         console.log('Creating model blob URLs...');
-        
+
         // Create metadata blob first
         const metadataBlob = new Blob([JSON.stringify(localModelFiles.metadataJson)], {type: 'application/json'});
         const metadataUrl = URL.createObjectURL(metadataBlob);
@@ -586,14 +610,14 @@ async function initLocal() {
         } else {
             throw new Error('Weights data is not in the correct format (should be ArrayBuffer)');
         }
-        
+
         const weightsBlob = new Blob([weightsData], {type: 'application/octet-stream'});
         const weightsUrl = URL.createObjectURL(weightsBlob);
         console.log('Weights URL created:', weightsUrl);
 
         // Create a modified model.json that points to our blob URL for weights
         const modifiedModelJson = JSON.parse(JSON.stringify(localModelFiles.modelJson));
-        
+
         // Update the weights manifest to point to our blob URL
         if (modifiedModelJson.weightsManifest && modifiedModelJson.weightsManifest.length > 0) {
             // Replace the weights path with our blob URL
@@ -627,7 +651,7 @@ async function initLocal() {
         } finally {
             // Restore original fetch
             window.fetch = originalFetch;
-            
+
             // Clean up blob URLs
             URL.revokeObjectURL(modelUrl);
             URL.revokeObjectURL(metadataUrl);
@@ -682,25 +706,25 @@ async function setupCamera() {
 function showSettingsPage() {
     // Stop any ongoing recognition
     stopCameraRecognition();
-    
+
     // Switch pages
     document.getElementById('recognition-page').classList.remove('active');
     document.getElementById('settings-page').classList.add('active');
-    
+
     console.log('Returned to settings page');
 }
 
 async function startCameraRecognition() {
     try {
         console.log('Starting camera recognition...');
-        
+
         // Get active poses and ensure we have at least one
         getActivePoses();
         if (poseSequence.length === 0) {
             alert('Please select at least one pose to practice.');
             return;
         }
-        
+
         // Reset state
         isRecognitionRunning = true;
         sequenceIndex = 0;
@@ -726,31 +750,30 @@ async function startCameraRecognition() {
 
 function stopCameraRecognition() {
     console.log('Stopping camera recognition...');
-    
+
     // Stop webcam properly
     if (webcam) {
         webcam.stop();
     }
-    
+
     // Clear canvas
     if (ctx) {
         ctx.clearRect(0, 0, 640, 480);
     }
-    
+
     // Reset all state
     resetRecognitionState();
-    
+
     console.log('Camera recognition stopped');
 }
 
 function updateCurrentPose() {
     if (poseSequence.length === 0) return;
-    
+
     const currentPoseIndex = poseSequence[sequenceIndex];
-    const pose = poses[currentPoseIndex];
-    // Clean the pose name by removing the line break and Sanskrit name
-    const cleanName = pose.name.split('\n')[0];
-    document.getElementById('pose-name').textContent = `Current Pose: ${cleanName}`;
+    const settings = loadSettings();
+    const poseName = settings.poseNames[currentPoseIndex]; // Get the saved pose name
+    document.getElementById('pose-name').textContent = `Current Pose: ${poseName}`;
 
     const poseCompare = document.getElementById('pose-compare');
     const savedImage = poseImages.get(currentPoseIndex);
@@ -891,7 +914,7 @@ function moveToNextPose() {
 
     // Get the completed pose name before moving to next
     const completedPoseIndex = poseSequence[sequenceIndex];
-    const completedPoseName = poses[completedPoseIndex].name.split('\n')[0];
+    const completedPoseName = settings.poseNames[completedPoseIndex];
 
     // Move to next pose in sequence
     sequenceIndex = (sequenceIndex + 1) % poseSequence.length;
