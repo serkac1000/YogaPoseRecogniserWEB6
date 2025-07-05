@@ -160,7 +160,7 @@ async function loadImageFromDB(poseIndex) {
 }
 
 // Compress image to reduce storage size
-function compressImage(file, maxWidth = 400, quality = 0.8) {
+function compressImage(file, maxWidth = 300, quality = 0.6) {
     return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -180,7 +180,16 @@ function compressImage(file, maxWidth = 400, quality = 0.8) {
             // Draw and compress
             ctx.drawImage(img, 0, 0, width, height);
             const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-            resolve(compressedDataUrl);
+            
+            // Check if compressed image is still too large (over 500KB)
+            const imageSizeKB = (compressedDataUrl.length * 0.75) / 1024;
+            if (imageSizeKB > 500) {
+                // Further compress if still too large
+                const furtherCompressed = canvas.toDataURL('image/jpeg', 0.4);
+                resolve(furtherCompressed);
+            } else {
+                resolve(compressedDataUrl);
+            }
         };
 
         img.src = URL.createObjectURL(file);
@@ -379,21 +388,32 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 async function loadPoseImages() {
+    // First, clean up any old localStorage image data to free space
+    for (let i = 1; i <= 7; i++) {
+        const oldKey = `pose-${i}-image`;
+        if (localStorage.getItem(oldKey)) {
+            localStorage.removeItem(oldKey);
+            console.log(`Removed old localStorage data for pose ${i}`);
+        }
+    }
+
     for (let index = 0; index < poses.length; index++) {
         const preview = document.getElementById(`pose-${index + 1}-preview`);
 
         // Try to load from IndexedDB first
         let savedImage = await loadImageFromDB(index + 1);
         
-        // Fallback to localStorage for backward compatibility
+        // Fallback to localStorage for backward compatibility (but clean it up)
         if (!savedImage) {
             savedImage = localStorage.getItem(`pose-${index + 1}-image`);
             if (savedImage) {
                 // Migrate from localStorage to IndexedDB
-                await saveImageToDB(savedImage, index + 1);
-                // Remove from localStorage to free space
-                localStorage.removeItem(`pose-${index + 1}-image`);
-                console.log(`Migrated pose ${index + 1} image from localStorage to IndexedDB`);
+                const migrated = await saveImageToDB(savedImage, index + 1);
+                if (migrated) {
+                    // Remove from localStorage to free space
+                    localStorage.removeItem(`pose-${index + 1}-image`);
+                    console.log(`Migrated pose ${index + 1} image from localStorage to IndexedDB`);
+                }
             }
         }
 
@@ -424,15 +444,9 @@ async function handleImageUpload(event, poseIndex) {
             if (saved) {
                 console.log(`Pose ${poseIndex} image uploaded and saved successfully`);
             } else {
-                console.warn(`Pose ${poseIndex} image uploaded but failed to save`);
-                // Fallback to localStorage if IndexedDB fails (though this might still hit quota)
-                try {
-                    localStorage.setItem(`pose-${poseIndex}-image`, compressedImageData);
-                    console.log(`Pose ${poseIndex} image saved to localStorage as fallback`);
-                } catch (e) {
-                    console.error(`Failed to save pose ${poseIndex} image to localStorage:`, e);
-                    alert(`Warning: Could not save pose ${poseIndex} image due to storage limitations. The image will work for this session but may not persist.`);
-                }
+                console.warn(`Pose ${poseIndex} image uploaded but failed to save to IndexedDB`);
+                // Don't fallback to localStorage to avoid quota issues
+                alert(`Warning: Could not save pose ${poseIndex} image due to storage limitations. The image will work for this session but may not persist. Try using smaller images or clearing browser storage.`);
             }
         } catch (error) {
             console.error(`Error processing pose ${poseIndex} image:`, error);
