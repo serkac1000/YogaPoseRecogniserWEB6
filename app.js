@@ -19,11 +19,19 @@ const poses = [
     { name: "Downward Dog\n(Adho Mukha Svanasana)", image: "downward.jpg" }
 ];
 
+// Model file storage
+let localModelFiles = {
+    modelJson: null,
+    metadataJson: null,
+    weightsBin: null
+};
+
 // Settings management
 function loadSettings() {
     const settings = JSON.parse(localStorage.getItem('yogaAppSettings') || '{}');
     const defaultSettings = {
         modelUrl: 'https://teachablemachine.withgoogle.com/models/BmWV2_mfv/',
+        modelSource: 'online',
         audioEnabled: true,
         recognitionDelay: 3,
         accuracyThreshold: 0.5
@@ -46,8 +54,22 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('recognition-delay').value = settings.recognitionDelay;
     document.getElementById('accuracy-threshold').value = settings.accuracyThreshold;
 
+    // Set model source
+    document.querySelector(`input[name="model-source"][value="${settings.modelSource}"]`).checked = true;
+    toggleModelSource();
+
     // Update accuracy display
     document.getElementById('accuracy-value').textContent = settings.accuracyThreshold;
+
+    // Add event listeners
+    document.querySelectorAll('input[name="model-source"]').forEach(radio => {
+        radio.addEventListener('change', toggleModelSource);
+    });
+
+    // Add local file handlers
+    document.getElementById('model-json').addEventListener('change', (e) => handleLocalFile(e, 'modelJson'));
+    document.getElementById('metadata-json').addEventListener('change', (e) => handleLocalFile(e, 'metadataJson'));
+    document.getElementById('weights-bin').addEventListener('change', (e) => handleLocalFile(e, 'weightsBin'));
 
     // Load pose images
     loadPoseImages();
@@ -93,20 +115,82 @@ function updateAccuracyDisplay() {
     display.textContent = slider.value;
 }
 
+function toggleModelSource() {
+    const modelSource = document.querySelector('input[name="model-source"]:checked').value;
+    const onlineGroup = document.getElementById('online-model-group');
+    const localGroup = document.getElementById('local-model-group');
+
+    if (modelSource === 'online') {
+        onlineGroup.style.display = 'block';
+        localGroup.style.display = 'none';
+    } else {
+        onlineGroup.style.display = 'none';
+        localGroup.style.display = 'block';
+    }
+}
+
+function handleLocalFile(event, fileType) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            if (fileType === 'weightsBin') {
+                localModelFiles[fileType] = e.target.result;
+            } else {
+                try {
+                    localModelFiles[fileType] = JSON.parse(e.target.result);
+                } catch (error) {
+                    alert(`Invalid JSON file: ${file.name}`);
+                    return;
+                }
+            }
+            
+            // Update label to show file is loaded
+            const label = event.target.nextElementSibling;
+            label.classList.add('file-loaded');
+            label.textContent = `✓ ${file.name}`;
+            
+            console.log(`Loaded ${fileType}:`, file.name);
+        };
+        
+        if (fileType === 'weightsBin') {
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
+    }
+}
+
+function validateLocalFiles() {
+    return localModelFiles.modelJson && 
+           localModelFiles.metadataJson && 
+           localModelFiles.weightsBin;
+}
+
 async function startRecognition() {
+    const modelSource = document.querySelector('input[name="model-source"]:checked').value;
+
     // Save current settings
     const settings = {
         modelUrl: document.getElementById('model-url').value,
+        modelSource: modelSource,
         audioEnabled: document.getElementById('audio-enabled').checked,
         recognitionDelay: parseInt(document.getElementById('recognition-delay').value),
         accuracyThreshold: parseFloat(document.getElementById('accuracy-threshold').value)
     };
     saveSettings(settings);
 
-    // Validate model URL
-    if (!settings.modelUrl) {
-        alert('Please enter a valid Teachable Machine model URL');
-        return;
+    // Validate based on model source
+    if (modelSource === 'online') {
+        if (!settings.modelUrl) {
+            alert('Please enter a valid Teachable Machine model URL');
+            return;
+        }
+    } else {
+        if (!validateLocalFiles()) {
+            alert('Please upload all required model files: model.json, metadata.json, and weights.bin');
+            return;
+        }
     }
 
     // Show loading and switch to recognition page
@@ -114,11 +198,15 @@ async function startRecognition() {
     document.getElementById('recognition-page').classList.add('active');
 
     try {
-        await init(settings.modelUrl);
+        if (modelSource === 'online') {
+            await init(settings.modelUrl);
+        } else {
+            await initLocal();
+        }
         await startCameraRecognition();
     } catch (error) {
         console.error('Failed to start recognition:', error);
-        alert('Failed to start recognition. Please check your model URL and try again.');
+        alert('Failed to start recognition. Please check your model files/URL and try again.');
         showSettingsPage();
     }
 }
@@ -132,25 +220,67 @@ async function init(modelURL) {
         maxPredictions = model.getTotalClasses();
         console.log('Model loaded successfully. Classes:', maxPredictions);
 
-        // Set up webcam
-        const flip = true;
-        webcam = new tmPose.Webcam(640, 480, flip);
-        await webcam.setup();
-
-        document.getElementById('webcam-container').appendChild(webcam.canvas);
-
-        // Set up canvas for drawing
-        const canvas = document.getElementById('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
-        ctx = canvas.getContext('2d');
-
-        console.log('Webcam and canvas set up successfully');
+        await setupCamera();
 
     } catch (error) {
         console.error('Failed to initialize:', error);
         throw error;
     }
+}
+
+async function initLocal() {
+    console.log('Loading local model files...');
+
+    try {
+        // Create blob URLs for local files
+        const modelBlob = new Blob([JSON.stringify(localModelFiles.modelJson)], {type: 'application/json'});
+        const metadataBlob = new Blob([JSON.stringify(localModelFiles.metadataJson)], {type: 'application/json'});
+        
+        const modelUrl = URL.createObjectURL(modelBlob);
+        const metadataUrl = URL.createObjectURL(metadataBlob);
+
+        // Load the model with local files
+        model = await tmPose.load(modelUrl, metadataUrl);
+        maxPredictions = model.getTotalClasses();
+        console.log('Local model loaded successfully. Classes:', maxPredictions);
+
+        // Clean up blob URLs
+        URL.revokeObjectURL(modelUrl);
+        URL.revokeObjectURL(metadataUrl);
+
+        await setupCamera();
+
+    } catch (error) {
+        console.error('Failed to initialize local model:', error);
+        throw error;
+    }
+}
+
+async function setupCamera() {
+    // Set up webcam
+    const flip = true;
+    webcam = new tmPose.Webcam(640, 480, flip);
+    await webcam.setup();
+
+    // Clear previous webcam if exists
+    const container = document.getElementById('webcam-container');
+    if (!container) {
+        // Create webcam container if it doesn't exist
+        const videoContainer = document.querySelector('.video-container');
+        const webcamContainer = document.createElement('div');
+        webcamContainer.id = 'webcam-container';
+        videoContainer.appendChild(webcamContainer);
+    }
+
+    document.getElementById('webcam-container').appendChild(webcam.canvas);
+
+    // Set up canvas for drawing
+    const canvas = document.getElementById('output');
+    canvas.width = 640;
+    canvas.height = 480;
+    ctx = canvas.getContext('2d');
+
+    console.log('Webcam and canvas set up successfully');
 }
 
 function showSettingsPage() {

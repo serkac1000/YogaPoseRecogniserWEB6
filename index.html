@@ -11,68 +11,95 @@
             <h1>Yoga Pose Settings</h1>
             <div class="settings-form">
                 <div class="form-group">
+                    <label>Model Source:</label>
+                    <div class="model-source-options">
+                        <label>
+                            <input type="radio" name="model-source" value="online" checked> Online URL
+                        </label>
+                        <label>
+                            <input type="radio" name="model-source" value="local"> Local Files
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="online-model-group">
                     <label>Teachable Machine Model URL:</label>
                     <input type="text" id="model-url" value="https://teachablemachine.withgoogle.com/models/5H-V2YcoQ/">
                 </div>
+                
+                <div class="form-group" id="local-model-group" style="display: none;">
+                    <label>Local Model Files:</label>
+                    <div class="local-files">
+                        <input type="file" id="model-json" accept=".json" placeholder="model.json">
+                        <label for="model-json">model.json</label>
+                        
+                        <input type="file" id="metadata-json" accept=".json" placeholder="metadata.json">
+                        <label for="metadata-json">metadata.json</label>
+                        
+                        <input type="file" id="weights-bin" accept=".bin" placeholder="weights.bin">
+                        <label for="weights-bin">weights.bin</label>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Pose 1 Image:</label>
-                    <input type="file" id="pose1-image" accept="image/*">
-                    <img id="pose1-preview" class="pose-preview">
+                    <input type="file" id="pose-1-image" accept="image/*" onchange="handleImageUpload(event, 1)">
+                    <img id="pose-1-preview" class="pose-preview">
                 </div>
                 <div class="form-group">
                     <label>Pose 2 Image:</label>
-                    <input type="file" id="pose2-image" accept="image/*">
-                    <img id="pose2-preview" class="pose-preview">
+                    <input type="file" id="pose-2-image" accept="image/*" onchange="handleImageUpload(event, 2)">
+                    <img id="pose-2-preview" class="pose-preview">
                 </div>
                 <div class="form-group">
                     <label>Pose 3 Image:</label>
-                    <input type="file" id="pose3-image" accept="image/*">
-                    <img id="pose3-preview" class="pose-preview">
+                    <input type="file" id="pose-3-image" accept="image/*" onchange="handleImageUpload(event, 3)">
+                    <img id="pose-3-preview" class="pose-preview">
                 </div>
                 <div class="form-group">
                     <label>Pose 4 Image:</label>
-                    <input type="file" id="pose4-image" accept="image/*">
-                    <img id="pose4-preview" class="pose-preview">
+                    <input type="file" id="pose-4-image" accept="image/*" onchange="handleImageUpload(event, 4)">
+                    <img id="pose-4-preview" class="pose-preview">
                 </div>
                 <div class="form-group">
                     <label>Pose 5 Image:</label>
-                    <input type="file" id="pose5-image" accept="image/*">
-                    <img id="pose5-preview" class="pose-preview">
+                    <input type="file" id="pose-5-image" accept="image/*" onchange="handleImageUpload(event, 5)">
+                    <img id="pose-5-preview" class="pose-preview">
                 </div>
                 <div class="form-group">
                     <label>Pose 6 Image:</label>
-                    <input type="file" id="pose6-image" accept="image/*">
-                    <img id="pose6-preview" class="pose-preview">
+                    <input type="file" id="pose-6-image" accept="image/*" onchange="handleImageUpload(event, 6)">
+                    <img id="pose-6-preview" class="pose-preview">
                 </div>
                 <div class="form-group">
                     <label>Pose 7 Image:</label>
-                    <input type="file" id="pose7-image" accept="image/*">
-                    <img id="pose7-preview" class="pose-preview">
+                    <input type="file" id="pose-7-image" accept="image/*" onchange="handleImageUpload(event, 7)">
+                    <img id="pose-7-preview" class="pose-preview">
                 </div>
                 <div class="settings-row">
                     <div class="form-group compact">
                         <label>
-                            🔊 <input type="checkbox" id="audio-toggle" checked> Audio Beep
+                            🔊 <input type="checkbox" id="audio-enabled" checked> Audio Beep
                         </label>
                     </div>
                     <div class="form-group compact">
                         <label>⏱️ Delay (sec):</label>
-                        <input type="number" id="delay-setting" min="0" max="3" step="0.1" value="3">
+                        <input type="number" id="recognition-delay" min="1" max="10" step="1" value="3">
                     </div>
                     <div class="form-group compact">
-                        <label>🎯 Accuracy (%):</label>
-                        <input type="number" id="accuracy-setting" min="30" max="90" step="5" value="50">
+                        <label>🎯 Accuracy:</label>
+                        <input type="range" id="accuracy-threshold" min="0.3" max="0.9" step="0.05" value="0.5" onchange="updateAccuracyDisplay()">
+                        <span id="accuracy-value">0.5</span>
                     </div>
                 </div>
-                <button id="start-button">Start Recognition</button>
+                <button onclick="startRecognition()">Start Recognition</button>
             </div>
         </div>
         <div id="recognition-page" class="page">
             <h1>Yoga Pose Recognition</h1>
             <div class="video-container">
-                <video id="webcam" playsinline></video>
+                <div id="webcam-container"></div>
                 <canvas id="output"></canvas>
-                <img id="current-pose" class="pose-compare">
+                <img id="pose-compare" class="pose-compare">
                 <div id="timer-display" class="timer-display">3</div>
             </div>
             <div id="pose-name">Current Pose: None</div>
@@ -84,9 +111,9 @@
                 <div id="confidence-text" class="confidence-text">0%</div>
             </div>
             <div class="control-buttons">
-                <button id="start-recognition-button" style="display: none;">▶️ Start</button>
-                <button id="stop-recognition-button" style="display: none;">⏹️ Stop</button>
-                <button id="back-button">Back to Settings</button>
+                <button id="start-recognition-button" onclick="startCameraRecognition()" style="display: none;">▶️ Start</button>
+                <button id="stop-recognition-button" onclick="stopCameraRecognition()" style="display: none;">⏹️ Stop</button>
+                <button onclick="showSettingsPage()">Back to Settings</button>
             </div>
         </div>
     </div>
