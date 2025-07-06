@@ -697,9 +697,34 @@ async function startRecognition() {
             return;
         }
     } else {
+        // For local files, check if files are actually loaded
+        const missingFiles = [];
+        
+        if (!localModelFiles.modelJson) {
+            missingFiles.push('• model.json');
+        }
+        if (!localModelFiles.metadataJson) {
+            missingFiles.push('• metadata.json');
+        }
+        if (!localModelFiles.weightsBin) {
+            // Try to load from IndexedDB one more time
+            const weightsData = await loadWeightsFromDB();
+            if (weightsData) {
+                localModelFiles.weightsBin = weightsData;
+            } else {
+                missingFiles.push('• weights.bin');
+            }
+        }
+
+        if (missingFiles.length > 0) {
+            alert(`❌ Cannot Start Recognition\n\nMissing required model files:\n${missingFiles.join('\n')}\n\nPlease upload all 3 model files before starting recognition.`);
+            return;
+        }
+
+        // Additional validation for file structure
         const isValid = await validateLocalFiles();
         if (!isValid) {
-            alert('❌ Cannot Start Recognition\n\nPlease upload all required model files:\n• model.json\n• metadata.json\n• weights.bin\n\nIf you previously saved these files, they should load automatically.');
+            alert('❌ Cannot Start Recognition\n\nInvalid model files detected. Please ensure you have uploaded valid Teachable Machine pose model files:\n• model.json\n• metadata.json\n• weights.bin');
             return;
         }
     }
