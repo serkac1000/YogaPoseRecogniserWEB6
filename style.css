@@ -252,6 +252,93 @@ button:hover {
 .local-files label {
     display: block;
     padding: 10px;
+    border: 2px dashed #ccc;
+    border-radius: 5px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+}
+
+.local-files label:hover {
+    border-color: #4CAF50;
+    background-color: #f9f9f9;
+}
+
+.local-files label.file-loaded {
+    border-color: #4CAF50;
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.poses-selection {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.pose-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    background: #fafafa;
+}
+
+.pose-item input[type="checkbox"] {
+    min-width: 18px;
+    height: 18px;
+}
+
+.pose-item label {
+    flex: 1;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.pose-item label:hover {
+    background-color: #e3f2fd;
+}
+
+.pose-item input[type="file"] {
+    display: none;
+}
+
+.pose-preview {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 2px solid #ddd;
+    display: none;
+    cursor: pointer;
+}
+
+.pose-preview:hover {
+    border-color: #4CAF50;
+}
+
+#loading-message {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+
+.local-files label {
+    display: block;
+    padding: 10px;
     background: #f0f0f0;
     border: 2px dashed #ccc;
     border-radius: 5px;
