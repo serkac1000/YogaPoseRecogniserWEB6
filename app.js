@@ -697,17 +697,40 @@ async function startRecognition() {
             return;
         }
     } else {
-        // For local files, check if files are actually loaded
+        // For local files, ensure all saved files are loaded first
+        await loadLocalModelFiles();
+        
         const missingFiles = [];
         
+        // Check if files are loaded in memory or available in storage
         if (!localModelFiles.modelJson) {
-            missingFiles.push('• model.json');
+            const savedModelJson = localStorage.getItem('localModelJson');
+            if (savedModelJson) {
+                try {
+                    localModelFiles.modelJson = JSON.parse(savedModelJson);
+                } catch (e) {
+                    missingFiles.push('• model.json (corrupted)');
+                }
+            } else {
+                missingFiles.push('• model.json');
+            }
         }
+        
         if (!localModelFiles.metadataJson) {
-            missingFiles.push('• metadata.json');
+            const savedMetadataJson = localStorage.getItem('localMetadataJson');
+            if (savedMetadataJson) {
+                try {
+                    localModelFiles.metadataJson = JSON.parse(savedMetadataJson);
+                } catch (e) {
+                    missingFiles.push('• metadata.json (corrupted)');
+                }
+            } else {
+                missingFiles.push('• metadata.json');
+            }
         }
+        
         if (!localModelFiles.weightsBin) {
-            // Try to load from IndexedDB one more time
+            // Try to load from IndexedDB
             const weightsData = await loadWeightsFromDB();
             if (weightsData) {
                 localModelFiles.weightsBin = weightsData;
