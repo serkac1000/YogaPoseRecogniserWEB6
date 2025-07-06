@@ -421,6 +421,12 @@ async function loadPoseImages() {
             preview.src = savedImage;
             preview.style.display = 'block';
             poseImages.set(index, savedImage);
+            
+            // Add visual indicator that image is uploaded
+            const poseItem = document.querySelector(`.pose-item:nth-child(${index + 1})`);
+            if (poseItem) {
+                poseItem.classList.add('has-image');
+            }
         }
     }
 }
@@ -428,6 +434,7 @@ async function loadPoseImages() {
 async function handleImageUpload(event, poseIndex) {
     const file = event.target.files[0];
     const preview = document.getElementById(`pose-${poseIndex}-preview`);
+    const poseItem = event.target.closest('.pose-item');
 
     if (file) {
         try {
@@ -437,6 +444,9 @@ async function handleImageUpload(event, poseIndex) {
             preview.src = compressedImageData;
             preview.style.display = 'block';
             poseImages.set(poseIndex - 1, compressedImageData);
+
+            // Add visual indicator that image is uploaded
+            poseItem.classList.add('has-image');
 
             // Save to IndexedDB instead of localStorage
             const saved = await saveImageToDB(compressedImageData, poseIndex);
@@ -540,13 +550,13 @@ async function validateLocalFiles() {
     }
 
     if (!localModelFiles.modelJson) {
-        errors.push('model.json file is missing - please upload');
+        errors.push('❌ model.json file is missing - please upload');
     }
     if (!localModelFiles.metadataJson) {
-        errors.push('metadata.json file is missing - please upload');
+        errors.push('❌ metadata.json file is missing - please upload');
     }
     if (!localModelFiles.weightsBin) {
-        errors.push('weights.bin file is missing - please upload');
+        errors.push('❌ weights.bin file is missing - please upload');
     }
 
     if (errors.length > 0) {
@@ -557,13 +567,13 @@ async function validateLocalFiles() {
     // Additional validation for file structure
     try {
         if (localModelFiles.modelJson && !localModelFiles.modelJson.weightsManifest) {
-            errors.push('model.json does not contain weightsManifest - invalid file format');
+            errors.push('❌ model.json does not contain weightsManifest - invalid file format');
         }
         if (localModelFiles.metadataJson && !localModelFiles.metadataJson.labels) {
-            errors.push('metadata.json does not contain labels - invalid file format');
+            errors.push('❌ metadata.json does not contain labels - invalid file format');
         }
     } catch (e) {
-        errors.push('Invalid JSON structure in model files');
+        errors.push('❌ Invalid JSON structure in model files');
     }
 
     if (errors.length > 0) {
@@ -635,7 +645,23 @@ async function startRecognition() {
     // Get active poses
     const activePosesList = getActivePoses();
     if (activePosesList.length === 0) {
-        alert('Please select at least one pose to practice.');
+        alert('❌ Cannot Start Recognition\n\nPlease select at least one pose to practice.');
+        return;
+    }
+
+    // Validate pose images for active poses
+    const missingPoseImages = [];
+    for (const poseIndex of activePosesList) {
+        const savedImage = poseImages.get(poseIndex);
+        if (!savedImage) {
+            const settings = loadSettings();
+            const poseName = settings.poseNames[poseIndex] || poses[poseIndex].name;
+            missingPoseImages.push(`• ${poseName}`);
+        }
+    }
+
+    if (missingPoseImages.length > 0) {
+        alert(`❌ Cannot Start Recognition\n\nMissing pose images for selected poses:\n${missingPoseImages.join('\n')}\n\nPlease upload images for all selected poses before starting recognition.`);
         return;
     }
 
@@ -666,14 +692,14 @@ async function startRecognition() {
 
     // Validate based on model source
     if (modelSource === 'online') {
-        if (!settings.modelUrl) {
-            alert('Please enter a valid Teachable Machine model URL');
+        if (!settings.modelUrl || settings.modelUrl.trim() === '') {
+            alert('❌ Cannot Start Recognition\n\nPlease enter a valid Teachable Machine model URL.');
             return;
         }
     } else {
         const isValid = await validateLocalFiles();
         if (!isValid) {
-            alert('Please upload all required model files: model.json, metadata.json, and weights.bin.\n\nIf you previously saved these files, they should load automatically.');
+            alert('❌ Cannot Start Recognition\n\nPlease upload all required model files:\n• model.json\n• metadata.json\n• weights.bin\n\nIf you previously saved these files, they should load automatically.');
             return;
         }
     }

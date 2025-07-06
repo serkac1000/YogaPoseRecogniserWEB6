@@ -1,3 +1,40 @@
+.pose-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: #f9f9f9;
+    transition: all 0.3s ease;
+}
+
+.pose-item.has-image {
+    border-color: #4CAF50;
+    background: #f0f8f0;
+}
+
+.pose-item.has-image::before {
+    content: "✓";
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.pose-preview {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    display: none;
+}
+
+.pose-item input[type="file"] {
+    max-width: 120px;
+}
+
 body {
     margin: 0;
     padding: 20px;
