@@ -399,6 +399,7 @@ async function loadPoseImages() {
 
     for (let index = 0; index < poses.length; index++) {
         const preview = document.getElementById(`pose-${index + 1}-preview`);
+        const fileLabel = document.querySelector(`label[for="pose-${index + 1}-image"]`);
 
         // Try to load from IndexedDB first
         let savedImage = await loadImageFromDB(index + 1);
@@ -427,6 +428,20 @@ async function loadPoseImages() {
             if (poseItem) {
                 poseItem.classList.add('has-image');
             }
+
+            // Update file label to show image is loaded
+            if (fileLabel) {
+                fileLabel.textContent = 'Image Loaded';
+                fileLabel.style.background = '#d4edda';
+                fileLabel.style.color = '#155724';
+            }
+        } else {
+            // Ensure label shows default text if no image
+            if (fileLabel) {
+                fileLabel.textContent = 'Choose File';
+                fileLabel.style.background = '#e9ecef';
+                fileLabel.style.color = '#495057';
+            }
         }
     }
 }
@@ -435,6 +450,7 @@ async function handleImageUpload(event, poseIndex) {
     const file = event.target.files[0];
     const preview = document.getElementById(`pose-${poseIndex}-preview`);
     const poseItem = event.target.closest('.pose-item');
+    const fileLabel = event.target.nextElementSibling;
 
     if (file) {
         try {
@@ -447,6 +463,13 @@ async function handleImageUpload(event, poseIndex) {
 
             // Add visual indicator that image is uploaded
             poseItem.classList.add('has-image');
+
+            // Update file label to show file name
+            if (fileLabel) {
+                fileLabel.textContent = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+                fileLabel.style.background = '#d4edda';
+                fileLabel.style.color = '#155724';
+            }
 
             // Save to IndexedDB instead of localStorage
             const saved = await saveImageToDB(compressedImageData, poseIndex);
@@ -461,6 +484,13 @@ async function handleImageUpload(event, poseIndex) {
         } catch (error) {
             console.error(`Error processing pose ${poseIndex} image:`, error);
             alert(`Error uploading pose ${poseIndex} image. Please try again.`);
+        }
+    } else {
+        // Reset label if no file selected
+        if (fileLabel) {
+            fileLabel.textContent = 'Choose File';
+            fileLabel.style.background = '#e9ecef';
+            fileLabel.style.color = '#495057';
         }
     }
 }
