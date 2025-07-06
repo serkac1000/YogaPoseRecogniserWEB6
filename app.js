@@ -180,7 +180,7 @@ function compressImage(file, maxWidth = 300, quality = 0.6) {
             // Draw and compress
             ctx.drawImage(img, 0, 0, width, height);
             const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-            
+
             // Check if compressed image is still too large (over 500KB)
             const imageSizeKB = (compressedDataUrl.length * 0.75) / 1024;
             if (imageSizeKB > 500) {
@@ -403,7 +403,7 @@ async function loadPoseImages() {
 
         // Try to load from IndexedDB first
         let savedImage = await loadImageFromDB(index + 1);
-        
+
         // Fallback to localStorage for backward compatibility (but clean it up)
         if (!savedImage) {
             savedImage = localStorage.getItem(`pose-${index + 1}-image`);
@@ -422,7 +422,7 @@ async function loadPoseImages() {
             preview.src = savedImage;
             preview.style.display = 'block';
             poseImages.set(index, savedImage);
-            
+
             // Add visual indicator that image is uploaded
             const poseItem = document.querySelector(`.pose-item:nth-child(${index + 1})`);
             if (poseItem) {
@@ -456,7 +456,7 @@ async function handleImageUpload(event, poseIndex) {
         try {
             // Compress image to reduce storage size
             const compressedImageData = await compressImage(file);
-            
+
             preview.src = compressedImageData;
             preview.style.display = 'block';
             poseImages.set(poseIndex - 1, compressedImageData);
@@ -473,7 +473,7 @@ async function handleImageUpload(event, poseIndex) {
 
             // Save to IndexedDB instead of localStorage
             const saved = await saveImageToDB(compressedImageData, poseIndex);
-            
+
             if (saved) {
                 console.log(`Pose ${poseIndex} image uploaded and saved successfully`);
             } else {
@@ -684,8 +684,8 @@ async function startRecognition() {
     for (const poseIndex of activePosesList) {
         const savedImage = poseImages.get(poseIndex);
         if (!savedImage) {
-            const settings = loadSettings();
-            const poseName = settings.poseNames[poseIndex] || poses[poseIndex].name;
+            // Always use the original pose name from poses array
+            const poseName = poses[poseIndex].name;
             missingPoseImages.push(`• ${poseName}`);
         }
     }
@@ -729,9 +729,9 @@ async function startRecognition() {
     } else {
         // For local files, ensure all saved files are loaded first
         await loadLocalModelFiles();
-        
+
         const missingFiles = [];
-        
+
         // Check if files are loaded in memory or available in storage
         if (!localModelFiles.modelJson) {
             const savedModelJson = localStorage.getItem('localModelJson');
@@ -745,7 +745,7 @@ async function startRecognition() {
                 missingFiles.push('• model.json');
             }
         }
-        
+
         if (!localModelFiles.metadataJson) {
             const savedMetadataJson = localStorage.getItem('localMetadataJson');
             if (savedMetadataJson) {
@@ -758,7 +758,7 @@ async function startRecognition() {
                 missingFiles.push('• metadata.json');
             }
         }
-        
+
         if (!localModelFiles.weightsBin) {
             // Try to load from IndexedDB
             const weightsData = await loadWeightsFromDB();
