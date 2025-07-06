@@ -11,25 +11,14 @@ A web application that uses machine learning to recognize yoga poses through web
 
 ## Installation & Setup
 
-1. Clone the repository:
-```bash
-git clone https://github.com/your-username/YogaPoseRecogniserWEB6.git
-```
+1. Clone the repository or open in Replit
 
-2. Navigate to the project directory:
-```bash
-cd YogaPoseRecogniserWEB6
-```
-
-3. Start a local server:
+2. Start the web server by clicking the "Run" button or run:
 ```bash
 python3 -m http.server 5000 --bind 0.0.0.0
 ```
 
-4. Open your browser and visit:
-```
-http://0.0.0.0:5000
-```
+3. Open your browser and visit the provided URL
 
 ## Usage
 1. Open the web app
@@ -41,4 +30,7 @@ http://0.0.0.0:5000
 
 ## Requirements
 - Modern web browser with webcam access
-- Python 3.x for running local server
+- Internet connection for AI model loading
+
+## Deployment
+This app can be deployed on Replit Deployments for public access.
