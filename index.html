@@ -15,15 +15,21 @@
             <h1>🧘‍♀️ Yoga Pose Recognition</h1>
             <div class="header-buttons">
                 <button id="settings-btn" class="btn btn-secondary">⚙️ Settings</button>
-                <button id="start-btn" class="btn btn-primary">🎯 Start Recognition</button>
+                <button id="start-btn" class="btn btn-primary" onclick="startRecognition()">🎯 Start Recognition</button>
                 <button id="stop-btn" class="btn btn-danger" style="display: none;">⏹️ Stop Recognition</button>
             </div>
         </header>
 
+        <!-- Hidden model source for main page -->
+        <div style="display: none;">
+            <input type="radio" name="model-source" value="local" checked>
+        </div>
+
         <main class="main-content">
             <div class="camera-section">
-                <div class="webcam-container">
+                <div class="webcam-container" id="webcam-container">
                     <canvas id="canvas" width="640" height="480"></canvas>
+                    <canvas id="output" width="640" height="480" style="position: absolute; top: 0; left: 0;"></canvas>
                     <div id="timer-display" class="timer-display" style="display: none;">5</div>
                 </div>
                 
@@ -39,12 +45,13 @@
             <div class="pose-section">
                 <div class="current-pose-info">
                     <h3>Current Pose</h3>
-                    <div id="current-pose-name">Ready to start...</div>
+                    <div id="pose-name">Ready to start...</div>
                 </div>
                 
-                <div class="pose-compare" id="pose-compare">
-                    <div class="waiting-message">
-                        <p>Upload pose images in settings and start recognition</p>
+                <div class="pose-compare-container" style="position: relative; width: 200px; height: 200px; margin: 0 auto;">
+                    <img id="pose-compare" class="pose-compare waiting" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                    <div class="waiting-message" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                        <p>Click Start Recognition to begin</p>
                     </div>
                 </div>
             </div>

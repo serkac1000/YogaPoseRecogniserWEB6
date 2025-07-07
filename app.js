@@ -378,15 +378,30 @@ document.addEventListener('DOMContentLoaded', async function() {
     const settings = loadSettings();
     console.log('Settings loaded:', settings);
 
-    // Apply settings to form
-    document.getElementById('model-url').value = settings.modelUrl;
-    document.getElementById('audio-enabled').checked = settings.audioEnabled;
-    document.getElementById('recognition-delay').value = settings.recognitionDelay;
-    document.getElementById('accuracy-threshold').value = settings.accuracyThreshold;
+    // Apply settings to form - but only if elements exist
+    const modelUrlEl = document.getElementById('model-url');
+    const audioEl = document.getElementById('audio-enabled');
+    const delayEl = document.getElementById('recognition-delay');
+    const thresholdEl = document.getElementById('accuracy-threshold');
+    
+    if (modelUrlEl) modelUrlEl.value = settings.modelUrl;
+    if (audioEl) audioEl.checked = settings.audioEnabled;
+    if (delayEl) delayEl.value = settings.recognitionDelay;
+    if (thresholdEl) thresholdEl.value = settings.accuracyThreshold;
 
-    // Set model source
-    document.querySelector(`input[name="model-source"][value="${settings.modelSource}"]`).checked = true;
-    toggleModelSource();
+    // Set model source - ensure local is selected by default
+    const modelSourceRadio = document.querySelector(`input[name="model-source"][value="${settings.modelSource}"]`);
+    if (modelSourceRadio) {
+        modelSourceRadio.checked = true;
+    } else {
+        // Fallback to local if radio doesn't exist
+        const localRadio = document.querySelector(`input[name="model-source"][value="local"]`);
+        if (localRadio) localRadio.checked = true;
+    }
+    
+    if (typeof toggleModelSource === 'function') {
+        toggleModelSource();
+    }
 
     // Load pose checkboxes state
     if (settings.activePoses) {
@@ -732,7 +747,9 @@ function refreshRecognition() {
 }
 
 async function startRecognition() {
-    const modelSource = document.querySelector('input[name="model-source"]:checked').value;
+    // Check if we're in settings page or main page
+    const modelSourceEl = document.querySelector('input[name="model-source"]:checked');
+    const modelSource = modelSourceEl ? modelSourceEl.value : 'local'; // Default to local
 
     // Get active poses
     const activePosesList = getActivePoses();
