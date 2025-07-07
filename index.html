@@ -15,7 +15,7 @@
             <h1>🧘‍♀️ Yoga Pose Recognition</h1>
             <div class="header-buttons">
                 <button id="settings-btn" class="btn btn-secondary">⚙️ Settings</button>
-                <button id="start-btn" class="btn btn-primary" onclick="startRecognition()">🎯 Start Recognition</button>
+                <button id="start-btn" class="btn btn-primary" onclick="startRecognition()" style="display: none;">🎯 Start Recognition</button>
                 <button id="stop-btn" class="btn btn-danger" style="display: none;">⏹️ Stop Recognition</button>
             </div>
         </header>
@@ -25,7 +25,7 @@
             <input type="radio" name="model-source" value="local" checked>
         </div>
 
-        <main class="main-content">
+        <main class="main-content" style="display: none;">
             <div class="camera-section">
                 <div class="webcam-container" id="webcam-container">
                     <canvas id="canvas" width="640" height="480"></canvas>
@@ -51,18 +51,20 @@
                 <div class="pose-compare-container" style="position: relative; width: 200px; height: 200px; margin: 0 auto;">
                     <img id="pose-compare" class="pose-compare waiting" style="width: 100%; height: 100%; object-fit: cover; display: none;">
                     <div class="waiting-message" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                        <p>Click Start Recognition to begin</p>
+                        <p>Configure settings first</p>
                     </div>
                 </div>
             </div>
         </main>
 
         <!-- Settings Modal -->
-        <div id="settings-modal" class="modal" style="display: none;">
+        <div id="settings-modal" class="modal" style="display: block;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>⚙️ Settings</h2>
-                    <span class="close">&times;</span>
+                    <h2>⚙️ Welcome! Configure Your Yoga App</h2>
+                    <div class="welcome-text">
+                        <p>Please configure your model and pose settings before starting the camera.</p>
+                    </div>
                 </div>
                 
                 <div class="modal-body">
@@ -75,7 +77,7 @@
                             </label>
                             <label>
                                 <input type="radio" name="model-source" value="local" checked>
-                                Local Model Files
+                                Local Model Files (Default loaded)
                             </label>
                         </div>
                         
@@ -86,17 +88,21 @@
                         </div>
                         
                         <div id="local-model-section">
+                            <p class="info-text">✅ Default model files are already loaded. You can upload your own files if needed:</p>
                             <div class="file-upload-group">
                                 <label for="model-json">model.json:</label>
                                 <input type="file" id="model-json" accept=".json">
+                                <span class="file-status">✅ Default loaded</span>
                             </div>
                             <div class="file-upload-group">
                                 <label for="metadata-json">metadata.json:</label>
                                 <input type="file" id="metadata-json" accept=".json">
+                                <span class="file-status">✅ Default loaded</span>
                             </div>
                             <div class="file-upload-group">
                                 <label for="weights-bin">weights.bin:</label>
                                 <input type="file" id="weights-bin" accept=".bin">
+                                <span class="file-status">✅ Default loaded</span>
                             </div>
                         </div>
                     </div>
@@ -117,13 +123,14 @@
                         
                         <div class="setting-item">
                             <label for="accuracy-threshold">Accuracy Threshold:</label>
-                            <input type="range" id="accuracy-threshold" min="0" max="1" step="0.1" value="0.5">
+                            <input type="range" id="accuracy-threshold" min="0" max="1" step="0.1" value="0.5" onchange="updateAccuracyDisplay()">
                             <span id="accuracy-value">0.5</span>
                         </div>
                     </div>
 
                     <div class="settings-section">
-                        <h3>Pose Images & Configuration</h3>
+                        <h3>Pose Selection & Images</h3>
+                        <p class="info-text">Select poses to practice and optionally upload reference images:</p>
                         <div id="poses-config">
                             <!-- Pose configuration will be dynamically generated -->
                         </div>
@@ -131,8 +138,8 @@
                 </div>
                 
                 <div class="modal-footer">
-                    <button id="save-settings" class="btn btn-primary">💾 Save Settings</button>
-                    <button id="cancel-settings" class="btn btn-secondary">❌ Cancel</button>
+                    <button id="start-app" class="btn btn-primary">🚀 Start Yoga App</button>
+                    <button id="save-settings" class="btn btn-secondary">💾 Save Settings Only</button>
                 </div>
             </div>
         </div>

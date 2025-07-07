@@ -378,6 +378,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const settings = loadSettings();
     console.log('Settings loaded:', settings);
 
+    // Generate poses configuration in settings modal
+    generatePosesConfig();
+
     // Apply settings to form - but only if elements exist
     const modelUrlEl = document.getElementById('model-url');
     const audioEl = document.getElementById('audio-enabled');
@@ -452,6 +455,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('metadata-json').addEventListener('change', (e) => handleLocalFile(e, 'metadataJson'));
     document.getElementById('weights-bin').addEventListener('change', (e) => handleLocalFile(e, 'weightsBin'));
 
+    // Add settings modal event listeners
+    document.getElementById('settings-btn').addEventListener('click', showSettingsModal);
+    document.getElementById('start-app').addEventListener('click', startAppFromSettings);
+    document.getElementById('save-settings').addEventListener('click', saveAllData);
+
     // Load pose images and local model files
     await loadPoseImages();
     await loadLocalModelFiles();
@@ -461,8 +469,54 @@ document.addEventListener('DOMContentLoaded', async function() {
         await loadDefaultModelFiles();
     }
 
-    console.log('App initialization complete. All saved settings and model files have been restored.');
+    console.log('App initialization complete. Settings modal is displayed for configuration.');
 });
+
+function generatePosesConfig() {
+    const posesConfig = document.getElementById('poses-config');
+    if (!posesConfig) return;
+
+    posesConfig.innerHTML = '';
+    
+    for (let i = 0; i < poses.length; i++) {
+        const poseItem = document.createElement('div');
+        poseItem.className = 'pose-item';
+        
+        poseItem.innerHTML = `
+            <input type="checkbox" id="pose-${i + 1}-enabled" checked>
+            <label for="pose-${i + 1}-enabled" contenteditable="true" onblur="updatePoseName(this, ${i + 1})">${poses[i].name}</label>
+            <input type="file" id="pose-${i + 1}-image" accept="image/*" onchange="handleImageUpload(event, ${i + 1})">
+            <label for="pose-${i + 1}-image">Choose File</label>
+            <img id="pose-${i + 1}-preview" class="pose-preview" style="display: none;">
+        `;
+        
+        posesConfig.appendChild(poseItem);
+    }
+}
+
+function showSettingsModal() {
+    document.getElementById('settings-modal').style.display = 'block';
+}
+
+function hideSettingsModal() {
+    document.getElementById('settings-modal').style.display = 'none';
+}
+
+function startAppFromSettings() {
+    // Save settings first
+    saveAllData();
+    
+    // Hide settings modal and show main app
+    hideSettingsModal();
+    document.querySelector('.main-content').style.display = 'flex';
+    document.getElementById('start-btn').style.display = 'inline-block';
+    
+    // Update waiting message
+    const waitingMessage = document.querySelector('.waiting-message p');
+    if (waitingMessage) {
+        waitingMessage.textContent = 'Click Start Recognition to begin';
+    }
+}
 
 async function loadPoseImages() {
     // First, clean up any old localStorage image data to free space
