@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoga Pose Recognition</title>
+    
+    <!-- McAfee compatibility headers -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <!-- Permissions policy for camera -->
+    <meta http-equiv="Permissions-Policy" content="camera=*">
+    
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@latest/dist/teachablemachine-pose.min.js"></script>
@@ -64,6 +73,12 @@
                     <h2>⚙️ Welcome! Configure Your Yoga App</h2>
                     <div class="welcome-text">
                         <p>Please configure your model and pose settings before starting the camera.</p>
+                        <div class="mcafee-warning" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                            <strong>🛡️ McAfee Users:</strong> If camera is blocked, try:<br>
+                            • Add this site to McAfee trusted sites<br>
+                            • Temporarily disable Real-Time Scanning<br>
+                            • Allow camera in browser settings
+                        </div>
                     </div>
                 </div>
                 

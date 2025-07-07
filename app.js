@@ -375,8 +375,9 @@ async function loadDefaultModelFiles() {
 
 // Initialize settings on page load
 document.addEventListener('DOMContentLoaded', async function() {
-    const settings = loadSettings();
-    console.log('Settings loaded:', settings);
+    try {
+        const settings = loadSettings();
+        console.log('Settings loaded:', settings);
 
     // Generate poses configuration in settings modal
     generatePosesConfig();
@@ -470,6 +471,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     console.log('App initialization complete. Settings modal is displayed for configuration.');
+    } catch (error) {
+        console.error('App initialization error:', error);
+        // Display user-friendly error message
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #ff6b6b; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
+        errorDiv.innerHTML = `
+            <strong>⚠️ App Loading Issue</strong><br>
+            Some features may be blocked by antivirus software.<br>
+            <small>Check console for details or try disabling McAfee temporarily.</small>
+        `;
+        document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 8000);
+    }
 });
 
 function generatePosesConfig() {
@@ -1114,7 +1128,30 @@ async function startCameraRecognition() {
 
     } catch (error) {
         console.error('Error starting camera recognition:', error);
-        alert('Failed to start camera. Please ensure camera permissions are granted.');
+        
+        // McAfee-specific error handling
+        let errorMessage = 'Failed to start camera.\n\n';
+        
+        if (error.message.includes('Permission denied') || error.message.includes('NotAllowedError')) {
+            errorMessage += '🔒 CAMERA BLOCKED - Possible Solutions:\n\n';
+            errorMessage += '1. McAfee Real-Time Scanning:\n';
+            errorMessage += '   • Open McAfee Total Protection\n';
+            errorMessage += '   • Go to Real-Time Scanning\n';
+            errorMessage += '   • Add this website to exceptions\n\n';
+            errorMessage += '2. Browser Camera Settings:\n';
+            errorMessage += '   • Click the camera icon in address bar\n';
+            errorMessage += '   • Select "Always allow on this site"\n\n';
+            errorMessage += '3. Windows Privacy Settings:\n';
+            errorMessage += '   • Settings > Privacy > Camera\n';
+            errorMessage += '   • Enable "Allow apps to access camera"\n\n';
+            errorMessage += '4. Temporary Fix:\n';
+            errorMessage += '   • Temporarily disable McAfee Web Protection\n';
+            errorMessage += '   • Restart browser and try again';
+        } else {
+            errorMessage += 'Please ensure camera permissions are granted and McAfee is not blocking camera access.';
+        }
+        
+        alert(errorMessage);
         isRecognitionRunning = false;
     }
 }
