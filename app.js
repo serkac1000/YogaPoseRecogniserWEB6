@@ -36,7 +36,7 @@ function loadSettings() {
     const settings = JSON.parse(localStorage.getItem('yogaAppSettings') || '{}');
     const defaultSettings = {
         modelUrl: 'https://teachablemachine.withgoogle.com/models/BmWV2_mfv/',
-        modelSource: 'online',
+        modelSource: 'local', // Changed to local by default
         audioEnabled: true,
         recognitionDelay: 3,
         accuracyThreshold: 0.5,
@@ -316,6 +316,63 @@ function getActivePoses() {
     return activePoses;
 }
 
+// Load default model files from attached_assets
+async function loadDefaultModelFiles() {
+    try {
+        // Load model.json
+        const modelResponse = await fetch('./attached_assets/model_1751728934055.json');
+        if (modelResponse.ok) {
+            localModelFiles.modelJson = await modelResponse.json();
+            console.log('Default model.json loaded');
+            
+            // Update UI
+            const modelLabel = document.getElementById('model-json')?.nextElementSibling;
+            if (modelLabel) {
+                modelLabel.classList.add('file-loaded');
+                modelLabel.textContent = '[OK] model.json (default)';
+            }
+        }
+
+        // Load metadata.json
+        const metadataResponse = await fetch('./attached_assets/metadata_1751728931952.json');
+        if (metadataResponse.ok) {
+            localModelFiles.metadataJson = await metadataResponse.json();
+            console.log('Default metadata.json loaded');
+            
+            // Update UI
+            const metadataLabel = document.getElementById('metadata-json')?.nextElementSibling;
+            if (metadataLabel) {
+                metadataLabel.classList.add('file-loaded');
+                metadataLabel.textContent = '[OK] metadata.json (default)';
+            }
+        }
+
+        // Load weights.bin
+        const weightsResponse = await fetch('./attached_assets/weights_1751728935974.bin');
+        if (weightsResponse.ok) {
+            localModelFiles.weightsBin = await weightsResponse.arrayBuffer();
+            console.log('Default weights.bin loaded');
+            
+            // Update UI
+            const weightsLabel = document.getElementById('weights-bin')?.nextElementSibling;
+            if (weightsLabel) {
+                weightsLabel.classList.add('file-loaded');
+                weightsLabel.textContent = '[OK] weights.bin (default)';
+            }
+
+            // Save to IndexedDB for persistence
+            await saveWeightsToDB(localModelFiles.weightsBin);
+        }
+
+        // Save all loaded files
+        await saveLocalModelFiles();
+        console.log('Default model files loaded and saved successfully');
+
+    } catch (error) {
+        console.error('Error loading default model files:', error);
+    }
+}
+
 // Initialize settings on page load
 document.addEventListener('DOMContentLoaded', async function() {
     const settings = loadSettings();
@@ -383,6 +440,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Load pose images and local model files
     await loadPoseImages();
     await loadLocalModelFiles();
+    
+    // Load default model files if none are already loaded
+    if (!localModelFiles.modelJson || !localModelFiles.metadataJson || !localModelFiles.weightsBin) {
+        await loadDefaultModelFiles();
+    }
 
     console.log('App initialization complete. All saved settings and model files have been restored.');
 });

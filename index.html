@@ -63,22 +63,22 @@
                         <h3>Model Configuration</h3>
                         <div class="model-source-toggle">
                             <label>
-                                <input type="radio" name="model-source" value="online" checked>
+                                <input type="radio" name="model-source" value="online">
                                 Online Model (Teachable Machine URL)
                             </label>
                             <label>
-                                <input type="radio" name="model-source" value="local">
+                                <input type="radio" name="model-source" value="local" checked>
                                 Local Model Files
                             </label>
                         </div>
                         
-                        <div id="online-model-section">
+                        <div id="online-model-section" style="display: none;">
                             <label for="model-url">Teachable Machine Model URL:</label>
                             <input type="url" id="model-url" placeholder="https://teachablemachine.withgoogle.com/models/YOUR_MODEL_ID/">
                             <small>Get this URL from your Teachable Machine pose model</small>
                         </div>
                         
-                        <div id="local-model-section" style="display: none;">
+                        <div id="local-model-section">
                             <div class="file-upload-group">
                                 <label for="model-json">model.json:</label>
                                 <input type="file" id="model-json" accept=".json">
