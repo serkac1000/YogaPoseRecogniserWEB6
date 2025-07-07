@@ -319,170 +319,219 @@ function getActivePoses() {
 // Load default model files from attached_assets
 async function loadDefaultModelFiles() {
     try {
+        console.log('Loading default model files...');
+        
         // Load model.json
-        const modelResponse = await fetch('./attached_assets/model_1751728934055.json');
-        if (modelResponse.ok) {
-            localModelFiles.modelJson = await modelResponse.json();
-            console.log('Default model.json loaded');
-            
-            // Update UI
-            const modelLabel = document.getElementById('model-json')?.nextElementSibling;
-            if (modelLabel) {
-                modelLabel.classList.add('file-loaded');
-                modelLabel.textContent = '[OK] model.json (default)';
+        try {
+            const modelResponse = await fetch('./attached_assets/model_1751728934055.json');
+            if (modelResponse.ok) {
+                localModelFiles.modelJson = await modelResponse.json();
+                console.log('Default model.json loaded');
+                
+                // Update UI
+                const modelLabel = document.getElementById('model-json')?.nextElementSibling;
+                if (modelLabel) {
+                    modelLabel.classList.add('file-loaded');
+                    modelLabel.textContent = '[OK] model.json (default)';
+                }
             }
+        } catch (error) {
+            console.warn('Could not load default model.json:', error.message);
         }
 
         // Load metadata.json
-        const metadataResponse = await fetch('./attached_assets/metadata_1751728931952.json');
-        if (metadataResponse.ok) {
-            localModelFiles.metadataJson = await metadataResponse.json();
-            console.log('Default metadata.json loaded');
-            
-            // Update UI
-            const metadataLabel = document.getElementById('metadata-json')?.nextElementSibling;
-            if (metadataLabel) {
-                metadataLabel.classList.add('file-loaded');
-                metadataLabel.textContent = '[OK] metadata.json (default)';
+        try {
+            const metadataResponse = await fetch('./attached_assets/metadata_1751728931952.json');
+            if (metadataResponse.ok) {
+                localModelFiles.metadataJson = await metadataResponse.json();
+                console.log('Default metadata.json loaded');
+                
+                // Update UI
+                const metadataLabel = document.getElementById('metadata-json')?.nextElementSibling;
+                if (metadataLabel) {
+                    metadataLabel.classList.add('file-loaded');
+                    metadataLabel.textContent = '[OK] metadata.json (default)';
+                }
             }
+        } catch (error) {
+            console.warn('Could not load default metadata.json:', error.message);
         }
 
         // Load weights.bin
-        const weightsResponse = await fetch('./attached_assets/weights_1751728935974.bin');
-        if (weightsResponse.ok) {
-            localModelFiles.weightsBin = await weightsResponse.arrayBuffer();
-            console.log('Default weights.bin loaded');
-            
-            // Update UI
-            const weightsLabel = document.getElementById('weights-bin')?.nextElementSibling;
-            if (weightsLabel) {
-                weightsLabel.classList.add('file-loaded');
-                weightsLabel.textContent = '[OK] weights.bin (default)';
-            }
+        try {
+            const weightsResponse = await fetch('./attached_assets/weights_1751728935974.bin');
+            if (weightsResponse.ok) {
+                localModelFiles.weightsBin = await weightsResponse.arrayBuffer();
+                console.log('Default weights.bin loaded');
+                
+                // Update UI
+                const weightsLabel = document.getElementById('weights-bin')?.nextElementSibling;
+                if (weightsLabel) {
+                    weightsLabel.classList.add('file-loaded');
+                    weightsLabel.textContent = '[OK] weights.bin (default)';
+                }
 
-            // Save to IndexedDB for persistence
-            await saveWeightsToDB(localModelFiles.weightsBin);
+                // Save to IndexedDB for persistence
+                try {
+                    await saveWeightsToDB(localModelFiles.weightsBin);
+                } catch (dbError) {
+                    console.warn('Could not save to IndexedDB:', dbError.message);
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load default weights.bin:', error.message);
         }
 
         // Save all loaded files
-        await saveLocalModelFiles();
-        console.log('Default model files loaded and saved successfully');
+        try {
+            await saveLocalModelFiles();
+            console.log('Default model files loaded and saved successfully');
+        } catch (error) {
+            console.warn('Could not save model files:', error.message);
+        }
 
     } catch (error) {
-        console.error('Error loading default model files:', error);
+        console.warn('Error in loadDefaultModelFiles:', error.message);
+        // Don't throw - allow app to continue
     }
 }
 
 // Initialize settings on page load
 document.addEventListener('DOMContentLoaded', async function() {
     try {
+        console.log('Starting app initialization...');
         const settings = loadSettings();
         console.log('Settings loaded:', settings);
 
-    // Generate poses configuration in settings modal
-    generatePosesConfig();
+        // Generate poses configuration in settings modal
+        generatePosesConfig();
 
-    // Apply settings to form - but only if elements exist
-    const modelUrlEl = document.getElementById('model-url');
-    const audioEl = document.getElementById('audio-enabled');
-    const delayEl = document.getElementById('recognition-delay');
-    const thresholdEl = document.getElementById('accuracy-threshold');
-    
-    if (modelUrlEl) modelUrlEl.value = settings.modelUrl;
-    if (audioEl) audioEl.checked = settings.audioEnabled;
-    if (delayEl) delayEl.value = settings.recognitionDelay;
-    if (thresholdEl) thresholdEl.value = settings.accuracyThreshold;
+        // Apply settings to form - but only if elements exist
+        const modelUrlEl = document.getElementById('model-url');
+        const audioEl = document.getElementById('audio-enabled');
+        const delayEl = document.getElementById('recognition-delay');
+        const thresholdEl = document.getElementById('accuracy-threshold');
+        
+        if (modelUrlEl) modelUrlEl.value = settings.modelUrl;
+        if (audioEl) audioEl.checked = settings.audioEnabled;
+        if (delayEl) delayEl.value = settings.recognitionDelay;
+        if (thresholdEl) thresholdEl.value = settings.accuracyThreshold;
 
-    // Set model source - ensure local is selected by default
-    const modelSourceRadio = document.querySelector(`input[name="model-source"][value="${settings.modelSource}"]`);
-    if (modelSourceRadio) {
-        modelSourceRadio.checked = true;
-    } else {
-        // Fallback to local if radio doesn't exist
-        const localRadio = document.querySelector(`input[name="model-source"][value="local"]`);
-        if (localRadio) localRadio.checked = true;
-    }
-    
-    if (typeof toggleModelSource === 'function') {
-        toggleModelSource();
-    }
+        // Set model source - ensure local is selected by default
+        const modelSourceRadio = document.querySelector(`input[name="model-source"][value="${settings.modelSource}"]`);
+        if (modelSourceRadio) {
+            modelSourceRadio.checked = true;
+        } else {
+            // Fallback to local if radio doesn't exist
+            const localRadio = document.querySelector(`input[name="model-source"][value="local"]`);
+            if (localRadio) localRadio.checked = true;
+        }
+        
+        if (typeof toggleModelSource === 'function') {
+            toggleModelSource();
+        }
 
-    // Load pose checkboxes state
-    if (settings.activePoses) {
-        for (let i = 0; i < 7; i++) {
-            const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
-            if (checkbox) {
-                checkbox.checked = settings.activePoses[i] || false;
+        // Load pose checkboxes state
+        if (settings.activePoses) {
+            for (let i = 0; i < 7; i++) {
+                const checkbox = document.getElementById(`pose-${i + 1}-enabled`);
+                if (checkbox) {
+                    checkbox.checked = settings.activePoses[i] || false;
+                }
             }
         }
-    }
 
-    // Load custom pose names
-    if (settings.poseNames && settings.poseNames.length > 0) {
-        for (let i = 0; i < 7; i++) {
-            const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
-            if (label && settings.poseNames[i]) {
-                label.textContent = settings.poseNames[i];
+        // Load custom pose names
+        if (settings.poseNames && settings.poseNames.length > 0) {
+            for (let i = 0; i < 7; i++) {
+                const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
+                if (label && settings.poseNames[i]) {
+                    label.textContent = settings.poseNames[i];
+                }
+            }
+        } else {
+            // Initialize with default pose names if none saved
+            for (let i = 0; i < 7; i++) {
+                const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
+                if (label && poses[i]) {
+                    label.textContent = poses[i].name;
+                }
             }
         }
-    } else {
-        // Initialize with default pose names if none saved
-        for (let i = 0; i < 7; i++) {
-            const label = document.querySelector(`label[for="pose-${i + 1}-enabled"]`);
-            if (label && poses[i]) {
-                label.textContent = poses[i].name;
+
+        // Update accuracy display
+        const accuracyValue = document.getElementById('accuracy-value');
+        if (accuracyValue) {
+            accuracyValue.textContent = settings.accuracyThreshold;
+        }
+
+        // Add event listeners safely
+        try {
+            document.querySelectorAll('input[name="model-source"]').forEach(radio => {
+                radio.addEventListener('change', toggleModelSource);
+            });
+
+            // Add pose checkbox listeners to save selection
+            for (let i = 1; i <= 7; i++) {
+                const checkbox = document.getElementById(`pose-${i}-enabled`);
+                if (checkbox) {
+                    checkbox.addEventListener('change', savePoseSelection);
+                }
             }
+
+            // Add local file handlers
+            const modelJsonEl = document.getElementById('model-json');
+            const metadataJsonEl = document.getElementById('metadata-json');
+            const weightsBinEl = document.getElementById('weights-bin');
+            
+            if (modelJsonEl) modelJsonEl.addEventListener('change', (e) => handleLocalFile(e, 'modelJson'));
+            if (metadataJsonEl) metadataJsonEl.addEventListener('change', (e) => handleLocalFile(e, 'metadataJson'));
+            if (weightsBinEl) weightsBinEl.addEventListener('change', (e) => handleLocalFile(e, 'weightsBin'));
+
+            // Add settings modal event listeners
+            const settingsBtnEl = document.getElementById('settings-btn');
+            const startAppEl = document.getElementById('start-app');
+            const saveSettingsEl = document.getElementById('save-settings');
+            
+            if (settingsBtnEl) settingsBtnEl.addEventListener('click', showSettingsModal);
+            if (startAppEl) startAppEl.addEventListener('click', startAppFromSettings);
+            if (saveSettingsEl) saveSettingsEl.addEventListener('click', saveAllData);
+        } catch (listenerError) {
+            console.warn('Some event listeners could not be added:', listenerError.message);
         }
-    }
 
-    // Update accuracy display
-    document.getElementById('accuracy-value').textContent = settings.accuracyThreshold;
-
-    // Add event listeners
-    document.querySelectorAll('input[name="model-source"]').forEach(radio => {
-        radio.addEventListener('change', toggleModelSource);
-    });
-
-    // Add pose checkbox listeners to save selection
-    for (let i = 1; i <= 7; i++) {
-        const checkbox = document.getElementById(`pose-${i}-enabled`);
-        if (checkbox) {
-            checkbox.addEventListener('change', savePoseSelection);
+        // Load pose images and local model files
+        try {
+            await loadPoseImages();
+            console.log('Pose images loaded');
+        } catch (error) {
+            console.warn('Could not load pose images:', error.message);
         }
-    }
 
-    // Add local file handlers
-    document.getElementById('model-json').addEventListener('change', (e) => handleLocalFile(e, 'modelJson'));
-    document.getElementById('metadata-json').addEventListener('change', (e) => handleLocalFile(e, 'metadataJson'));
-    document.getElementById('weights-bin').addEventListener('change', (e) => handleLocalFile(e, 'weightsBin'));
+        try {
+            await loadLocalModelFiles();
+            console.log('Local model files loaded');
+        } catch (error) {
+            console.warn('Could not load local model files:', error.message);
+        }
+        
+        // Load default model files if none are already loaded
+        if (!localModelFiles.modelJson || !localModelFiles.metadataJson || !localModelFiles.weightsBin) {
+            console.log('Loading default model files...');
+            await loadDefaultModelFiles();
+        }
 
-    // Add settings modal event listeners
-    document.getElementById('settings-btn').addEventListener('click', showSettingsModal);
-    document.getElementById('start-app').addEventListener('click', startAppFromSettings);
-    document.getElementById('save-settings').addEventListener('click', saveAllData);
-
-    // Load pose images and local model files
-    await loadPoseImages();
-    await loadLocalModelFiles();
-    
-    // Load default model files if none are already loaded
-    if (!localModelFiles.modelJson || !localModelFiles.metadataJson || !localModelFiles.weightsBin) {
-        await loadDefaultModelFiles();
-    }
-
-    console.log('App initialization complete. Settings modal is displayed for configuration.');
+        console.log('✅ App initialization complete. Settings modal is ready.');
+        
     } catch (error) {
         console.error('App initialization error:', error);
-        // Display user-friendly error message
-        const errorDiv = document.createElement('div');
-        errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #ff6b6b; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
-        errorDiv.innerHTML = `
-            <strong>⚠️ App Loading Issue</strong><br>
-            Some features may be blocked by antivirus software.<br>
-            <small>Check console for details or try disabling McAfee temporarily.</small>
-        `;
-        document.body.appendChild(errorDiv);
-        setTimeout(() => errorDiv.remove(), 8000);
+        console.log('App will continue with basic functionality.');
+        
+        // Ensure settings modal is still shown even if there are errors
+        const settingsModal = document.getElementById('settings-modal');
+        if (settingsModal) {
+            settingsModal.style.display = 'block';
+        }
     }
 });
 
